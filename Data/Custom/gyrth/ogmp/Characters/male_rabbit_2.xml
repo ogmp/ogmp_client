@@ -1,0 +1,5 @@
+<?xml version="1.0" ?>
+ <Actor>
+   <Character>Data/Characters/male_rabbit_2.xml</Character>
+     <ControlScript>../Custom/gyrth/ogmp/Scripts/remote_player.as</ControlScript>
+ </Actor>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+ <head>
+  <link rel='stylesheet' href='../global/window.css' type='text/css'>
+  <link rel='stylesheet' type='text/css' href='../colorpicker/combo.css'> 
+  <link rel='stylesheet' href='../global/inspector.css' type='text/css'>
+  <link rel='stylesheet' href='../global/chosen/chosen.css' type='text/css'>
+  <script type='text/javascript' src='../global/jquery132.min.js'></script>
+  <script type='text/javascript' src='../global/chosen/chosen.jquery.min.js'></script>
+  <script type='text/javascript' src='../global/jquery-ui-1.7.1.custom.min.js'></script>
+  <script type='text/javascript' src='../colorpicker/combo.js'></script>
+  <script type='text/javascript' src='../global/util.js'></script>
+  <style>
+	#holderholder {
+		margin-left: 20px;
+		margin-top: 15px;
+		width: 96%;
+	}
+
+	#container, #subcontainer, body, html {
+		height: 95%;
+	}
+	
+	#user-list {
+		border: none;
+		display: none;
+		width: 100%;
+		height: 70%;
+	}
+  </style>
+ </head>
+ <body>
+   <div id='cpholder'></div>
+   <div id='container'>
+    <div id='subcontainer'>
+     <div id='windowtop'>
+      <div id='windowtitle'>Player List</div>
+     </div>
+     <div id='holderholder'></div>
+    </div>
+   </div>
+   <script type="text/javascript" language="javascript">
+	var server_address;
+
+	function try_injecting() {
+		if (!server_address) {	
+			setTimeout(try_injecting, 20);
+			return;
+		}
+
+		var iframe = $('<iframe id="user-list" />').attr('src', 'http://' + server_address + '/users.html').appendTo('#holderholder')
+
+		iframe.load(function() {
+			iframe.show();
+		});
+	}
+
+	Client.Loaded();
+	try_injecting();
+  </script>
+ </body>
+</html>
