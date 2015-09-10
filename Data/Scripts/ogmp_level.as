@@ -687,7 +687,7 @@ void HandleChat() {
 }
 
 void DrawUsernames() {
-	if(connected_to_server) {
+	if(!connected_to_server) {
 		return;
 	}
 
