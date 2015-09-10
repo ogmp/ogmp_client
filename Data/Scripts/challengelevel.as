@@ -1,5 +1,6 @@
 #include "ui_effects.as"
 #include "threatcheck.as"
+#include "ogmp_challengelevel.as"
 
 bool reset_allowed = true;
 float time = 0.0f;
@@ -220,6 +221,11 @@ class ChallengeEndGUI {
     }
 
     void Update(){
+        if(IsMultiplayer()) {
+            target_visible = 0.0f;
+            return;
+        }
+
         visible = UpdateVisible(visible, target_visible);
         if(gui_id != -1){
             gui.MoveTo(gui_id,GetScreenWidth()/2-400,GetScreenHeight()/2-300);
@@ -464,25 +470,9 @@ void Update() {
     if(display_achievements && GetPlayerCharacterID() != -1){
         achievements.UpdateDebugText();
     }
-
-	// Only check for victory if player is not connected to a server.
-	int player_id = GetPlayerCharacterID();
-
-	if(player_id == -1) {
-		return;
-	}
-
-	MovementObject@ char = ReadCharacter(player_id);
-
-	if(!char.GetBoolVar("MPIsConnected")) {
-		challenge_end_gui.Update();
-	}
-
-	time += time_step;
-
-	if(!char.GetBoolVar("MPIsConnected")) {
-		VictoryCheckNormal();
-	}
+    challenge_end_gui.Update();
+    time += time_step;
+    VictoryCheckNormal();
 }
 
 int NumUnvisitedMustVisitTriggers() {
