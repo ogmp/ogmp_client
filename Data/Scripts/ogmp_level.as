@@ -21,7 +21,6 @@ uint32 chat_id;
 uint32 playerlist_id;
 bool showing_chat_input = false;
 array<MovementObject@> remote_players;
-vec3 spawn_pos = vec3(0,0,0);
 
 void UpdateOGMP() {
 	CheckKeys();
@@ -31,31 +30,34 @@ void UpdateOGMP() {
 	SendUpdate();
 }
 
-void InitOGMPSpawnPos() {
-	int player_id = GetPlayerCharacterID();
-
-	if(player_id == -1) {
-		return;
-	}
-
-	MovementObject@ char = ReadCharacter(player_id);
-	spawn_pos = char.position;
-}
-
 void CheckKeys() {
 	if(!has_gui && !has_client_connect_gui && GetInputPressed(controller_id, "f12") && GetPlayerCharacterID() != -1) {
+		// If the user already has a client connect window we have to destroy it first.
 		if(client_connect_id > 0) {
 			gui.RemoveGUI(client_connect_id);
 		}
 
+		// This closes the current connection, so this has to be handled.
 		if(connected_to_server) {
 			Disconnect();
 		}
 
+		// Now we can create the html document. This is the object that will actually connect to the server.
+		client_connect_id = gui.AddGUI("gamemenu", "ClientConnect\\clientconnect.html", GetScreenWidth()/1.5f, 500, 0);
 		has_client_connect_gui = true;
-
-		client_connect_id = gui.AddGUI("gamemenu","ClientConnect\\clientconnect.html",GetScreenWidth()/1.5f,500,0);
 		gui.Execute(client_connect_id,"level = \""+level_name+"\";");
+
+		// Send current player position to client connect document for spawn.
+		int player_id = GetPlayerCharacterID();
+
+		if(player_id == -1) {
+			return;
+		}
+
+		MovementObject@ char = ReadCharacter(player_id);
+		gui.Execute(client_connect_id,"posx = "+char.position.x+";");
+		gui.Execute(client_connect_id,"posy = "+char.position.y+";");
+		gui.Execute(client_connect_id,"posz = "+char.position.z+";");
 	}
 
 	if(connected_to_server) {
@@ -248,6 +250,9 @@ void HandleConnection() {
 						string new_player_username;
 						string new_player_char_dir;
 						string new_player_team;
+						float new_player_posx;
+						float new_player_posy;
+						float new_player_posz;
 						
 						//First all the variables need to be extracted from the incomming message.
 						for (int b = 0; b < second_level_size; b++) {
@@ -260,6 +265,12 @@ void HandleConnection() {
 								new_player_char_dir = "Data/Custom/gyrth/ogmp/Characters/" + value + ".xml";
 							} else if(name == "team") {
 								new_player_team = value;
+							} else if(name == "posx") {
+								new_player_posx = parseFloat(value);
+							} else if(name == "posy") {
+								new_player_posy = parseFloat(value);
+							} else if(name == "posz") {
+								new_player_posz = parseFloat(value);
 							}
 						}
 
@@ -270,11 +281,10 @@ void HandleConnection() {
 						MovementObject@ new_char = ReadCharacter(GetNumCharacters()-1);
 						new_char.Execute("MPIsConnected = true;");
 
-						//The character needs to be moved or else the next character will be spawned inside this one.
-						//The position does not really matter, because the characters are moved to other positions on the first update.
-						//It is likely though that positions inside other objects can lead to crashes.
-						new_char.position = spawn_pos;
-						spawn_pos = vec3(spawn_pos.x + 2, spawn_pos.y, spawn_pos.z);
+						//Set spawn position.
+						new_char.position.x = new_player_posx;
+						new_char.position.y = new_player_posy;
+						new_char.position.z = new_player_posz;
 
 						//Just in case stop any movement.
 						new_char.velocity = vec3(0);
