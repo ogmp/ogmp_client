@@ -95,6 +95,8 @@ void Init(string p_level_name) {
         text.AddText(new_string, small_style);
         text.UploadTextCanvasToTexture();
     }
+
+    InitOGMPSpawnPos();
 }
 
 int HasCameraControl() {

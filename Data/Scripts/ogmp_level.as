@@ -21,7 +21,7 @@ uint32 chat_id;
 uint32 playerlist_id;
 bool showing_chat_input = false;
 array<MovementObject@> remote_players;
-vec3 spawn_pos = vec3(1000,1000,1000);
+vec3 spawn_pos = vec3(0,0,0);
 
 void UpdateOGMP() {
 	CheckKeys();
@@ -29,6 +29,17 @@ void UpdateOGMP() {
 	HandleChat();	
 	DrawUsernames();
 	SendUpdate();
+}
+
+void InitOGMPSpawnPos() {
+	int player_id = GetPlayerCharacterID();
+
+	if(player_id == -1) {
+		return;
+	}
+
+	MovementObject@ char = ReadCharacter(player_id);
+	spawn_pos = char.position;
 }
 
 void CheckKeys() {
@@ -251,21 +262,25 @@ void HandleConnection() {
 								new_player_team = value;
 							}
 						}
+
 						//Then the new player is spawned 
 						int new_player_id = CreateObject(new_player_char_dir); // TODO: check this out
 
 						//The newly created character is always the last item in the GetNumCharacters list.
 						MovementObject@ new_char = ReadCharacter(GetNumCharacters()-1);
+						new_char.Execute("MPIsConnected = true;");
 
 						//The character needs to be moved or else the next character will be spawned inside this one.
 						//The position does not really matter, because the characters are moved to other positions on the first update.
 						//It is likely though that positions inside other objects can lead to crashes.
 						new_char.position = spawn_pos;
-						spawn_pos = vec3(spawn_pos.x + 10, spawn_pos.y + 10, spawn_pos.z);
+						spawn_pos = vec3(spawn_pos.x + 2, spawn_pos.y, spawn_pos.z);
+
+						//Just in case stop any movement.
+						new_char.velocity = vec3(0);
 
 						//Reset animations to avoid long arms.
 						new_char.Execute("ResetSecondaryAnimation();");
-						new_char.Execute("MPIsConnected = true;");
 
 						//This new character is added to our own remote_player list so we can keep track of it.
 						remote_players.insertLast(new_char);
