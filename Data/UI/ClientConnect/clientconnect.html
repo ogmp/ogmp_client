@@ -42,6 +42,9 @@
 	var username = '';
 	var server_address = '';
 	var level = '';
+	var posx = 0;
+	var posy = 0;
+	var posz = 0;
 
 	function closeWindow() {
 		Client.GenericCallback("closeWindow");
@@ -166,7 +169,10 @@
 			level: level,
 			character: character,
 			server: server_address,
-			version: version
+			version: version,
+			posx: posx,
+			posy: posy,
+			posz: posz
 		};
 
 		$.ajax({
