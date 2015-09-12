@@ -25,8 +25,8 @@ array<MovementObject@> remote_players;
 void UpdateOGMP() {
 	CheckKeys();
 	HandleConnection();
-	HandleChat();	
-	DrawUsernames();
+	/*HandleChat();	
+	DrawUsernames();*/
 	SendUpdate();
 }
 
@@ -60,7 +60,7 @@ void CheckKeys() {
 		gui.Execute(client_connect_id,"posz = "+char.position.z+";");
 	}
 
-	if(connected_to_server) {
+	/*if(connected_to_server) {
 		if(GetInputPressed(controller_id, "return")) {
 			has_chat_gui = !has_chat_gui;
 			gui.Execute(chat_id,"toggleChat();");
@@ -99,7 +99,7 @@ void CheckKeys() {
 				gui.Execute(client_connect_id,"sendUpdate(\""+message+"\")");
 			}
 		}
-	}
+	}*/
 }
 
 void HandleConnection() {
@@ -189,7 +189,7 @@ void HandleConnection() {
 						gui.Execute(client_connect_id,"connectSuccessful()");
 						PrintDebug("Successfully connected to server. UID: " + client_uid + "\n");
 
-						if(chat_id <= 0) {
+						/*if(chat_id <= 0) {
 							chat_id = gui.AddGUI("gamemenu","ClientConnect\\chat.html",400,400,0);
 
 							gui.MoveTo(chat_id,GetScreenWidth()-400,GetScreenHeight()-400);
@@ -200,7 +200,7 @@ void HandleConnection() {
 						string filtered = join( welcome_message.split( "\"" ), "" );
 						gui.Execute(chat_id,"addChat('System','Server message: "+filtered+"',true)");
 
-						gui.Execute(chat_id,"name = '"+username+"';");
+						gui.Execute(chat_id,"name = '"+username+"';");*/
 
 						// Prepare other players or remove them.
 						array<int> delete_chars;
@@ -626,7 +626,7 @@ void HandleConnection() {
 							char.Execute("this_mo.rigged_object().CleanBlood();");
 						}
 					} else if(first_level[a][0][1] == "Message") {
-						int second_level_size = first_level[a].size();
+						/*int second_level_size = first_level[a].size();
 
 						string remote_username;
 						string text;
@@ -653,9 +653,9 @@ void HandleConnection() {
 						text = join( text.split( "%5c" ), "\\" );
 
 						PrintDebug("Adding chat message: " + "addChat(\""+remote_username+"\",\""+text+"\","+notif+")" + "\n");
-						gui.Execute(chat_id,"addChat(\""+remote_username+"\",\""+text+"\","+notif+")");
+						gui.Execute(chat_id,"addChat(\""+remote_username+"\",\""+text+"\","+notif+")");*/
 					} else if(first_level[a][0][1] == "LoadPosition") {
-						PlaySound("Data/Sounds/ambient/amb_canyon_hawk_1.wav");
+						/*PlaySound("Data/Sounds/ambient/amb_canyon_hawk_1.wav");
 						PrintDebug("Received loadpostion message." + "\n");
 
 						//Reset velocity to avoid being crunched to death.
@@ -677,7 +677,7 @@ void HandleConnection() {
 						}
 
 						// Reset animations to avoid the strange hands.
-						char.Execute("ResetSecondaryAnimation();");
+						char.Execute("ResetSecondaryAnimation();");*/
 					}
 				}
 			}
@@ -687,7 +687,7 @@ void HandleConnection() {
 	}
 }
 
-void HandleChat() {
+/*void HandleChat() {
 	if(!connected_to_server) {
 		return;
 	}
@@ -762,7 +762,7 @@ void DrawUsernames() {
 		vec3 name_text_pos = vec3(char.position.x, char.position.y + 1.5f, char.position.z);
 		text.DebugDrawBillboard(name_text_pos, obj.GetScale().x, _delete_on_update);
 	}
-}
+}*/
 
 void SendUpdate() {
 	if(connected_to_server) {
@@ -813,7 +813,14 @@ void SendUpdate() {
 
 void Disconnect() {
 	connected_to_server = false;
-	MovementObject@ char = ReadCharacter(0);
+
+	int player_id = GetPlayerCharacterID();
+
+	if(player_id == -1) {
+		PrintDebug("Disconnect, but no player?\n");
+	}
+
+	MovementObject@ char = ReadCharacter(player_id);
 	char.Execute("MPIsConnected = false;");
 
 	// Notify player.
