@@ -4,9 +4,7 @@
 OGMP is the **O**ver**G**rowth **M**ulti**P**layer mod, an unoffical addition to the upcoming game [Overgrowth](http://www.wolfire.com/overgrowth) by Wolfire Games.
 
 ## Installation
-To install the mod you simply have to merge the *Data* folder of the mod with your Overgrowth folder (e.g., *C:\Program Files\Steam\SteamApps\common\Overgrowth*).
-
-If you want to uninstall OGMP you can use the original files from http://forums.wolfire.com/viewtopic.php?f=16&t=15409 to reset all changes.
+To install the mod you simply have to copy the *ogmp* folder to the Overgrowth mods folder (e.g., *C:\Program Files\Steam\SteamApps\common\Overgrowth\Data\Mods*).
 
 ## Usage
 To connect to a server you first have to load a level. Once the level is loaded you can press **F12** to open the connection window. You can either connect to a public server like [ogmp.net](http://ogmp.net/) or you can host your own server with [ogmp_server](https://github.com/ogmp/ogmp_server).
