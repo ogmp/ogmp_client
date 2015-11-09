@@ -1,6 +1,6 @@
 #include "ui_effects.as"
 #include "dialogue.as"
-#include "ogmp_level.as"
+#include "../Mods/ogmp/Data/Scripts/ogmp_challengelevel.as"
 
 int controller_id = 0;
 bool has_gui = false;
@@ -169,19 +169,20 @@ void ReceiveMessage(string msg) {
 
 void DrawGUI() {
     if(hotspot_image_string.length() != 0){
-        HUDImage@ image = hud.AddImage();
+        HUDImage@ image = hud.AddImage();   
         image.SetImageFromPath(hotspot_image_string);
         image.position = vec3(700,200,0);
     }
     dialogue.Display();
 }
 
-void Update() {
+void Update() {  
     if(level.HasFocus()){
         SetGrabMouse(false);
     }
 
     if(has_gui){
+        EnterTelemetryZone("Update gui");
         string callback = gui.GetCallback(gui_id);
         while(callback != ""){
             Print("AS Callback: "+callback+"\n");
@@ -204,37 +205,41 @@ void Update() {
             }
             if(callback == "settings"){
                 gui.RemoveGUI(gui_id);
-                OpenSettings();
+                OpenSettings(context);
                 has_gui = false;
                 break;
             }
             callback = gui.GetCallback(gui_id);
         }
+        LeaveTelemetryZone();
     }
 
-	UpdateOGMP();
+    UpdateOGMP();
 
     if(!has_gui && GetInputDown(controller_id, "esc") && GetPlayerCharacterID() == -1){
         gui_id = gui.AddGUI("gamemenu","dialogs\\gamemenu.html",220,270,0);
         has_gui = true;
     }
 
-	if(!connected_to_server) {
-		if(DebugKeysEnabled() && GetInputPressed(controller_id, "l")){
-			level.SendMessage("manual_reset");
-		}
+    if(!connected_to_server){
+        if(DebugKeysEnabled() && GetInputPressed(controller_id, "l")){
+            level.SendMessage("manual_reset");
+        }
 
-		if(DebugKeysEnabled() && GetInputDown(controller_id, "x")){
-			int num_items = GetNumItems();
-			for(int i=0; i<num_items; i++){
-				ItemObject@ item_obj = ReadItem(i);
-				item_obj.CleanBlood();
-			}
-		}
-	}
-
-	dialogue.Update();
-	SetAnimUpdateFreqs();
+        if(DebugKeysEnabled() && GetInputDown(controller_id, "x")){  
+            int num_items = GetNumItems();
+            for(int i=0; i<num_items; i++){
+                ItemObject@ item_obj = ReadItem(i);
+                item_obj.CleanBlood();
+            }
+        }
+    }
+    EnterTelemetryZone("Update dialogue");
+    dialogue.Update();
+    LeaveTelemetryZone();
+    EnterTelemetryZone("SetAnimUpdateFreqs");
+    SetAnimUpdateFreqs();
+    LeaveTelemetryZone();
 }
 
 const float _max_anim_frames_per_second = 100.0f;
@@ -263,8 +268,8 @@ void SetAnimUpdateFreqs() {
         if(char.controlled){
             continue;
         }
-        int period = 120.0f/(framerate_request[i]*scale);
-        period = min(10,max(4, period));
+        int period = int(120.0f/(framerate_request[i]*scale));
+        period = int(min(10,max(4, period)));
         if(char.GetIntVar("tether_id") != -1){
             char.rigged_object().SetAnimUpdatePeriod(2);
             char.SetScriptUpdatePeriod(2);
@@ -294,3 +299,44 @@ void HotspotEnter(string str, MovementObject @mo) {
 
 void HotspotExit(string str, MovementObject @mo) {
 }
+
+
+
+JSON getArenaSpawns() {
+    JSON testValue;
+
+    Print("Starting getArenaSpawns\n");
+
+    JSONValue jsonArray( JSONarrayValue );
+
+    // Go through and record all possible spawn locations, store them by name
+    dictionary spawnLocations; // All the spawn locations map from name to object id
+    array<int> @allObjectIds = GetObjectIDs();
+    for( uint objectIndex = 0; objectIndex < allObjectIds.length(); objectIndex++ ) {
+        Object @obj = ReadObjectFromID( allObjectIds[ objectIndex ] );
+        ScriptParams@ params = obj.GetScriptParams();
+        if(params.HasParam("Name") && params.GetString("Name") == "arena_spawn" ) {
+            if(params.HasParam("LocName") ) {
+                string LocName = params.GetString("LocName");
+                if( LocName != "" ) {
+                    if( spawnLocations.exists( LocName ) ) {
+                        DisplayError("Error", "Duplicate spawn location " + LocName );
+                    }
+                    else {
+                        spawnLocations[ LocName ] = allObjectIds[ objectIndex ];
+                        jsonArray.append( JSONValue( LocName ) );
+                    }
+                }
+            }
+        }
+    }
+
+    testValue.getRoot() = jsonArray;
+
+    Print("Done getArenaSpawns\n");
+
+    return testValue;
+
+}
+
+

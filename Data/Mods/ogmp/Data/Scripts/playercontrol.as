@@ -29,7 +29,7 @@ string GetIdleOverride(){
 float last_noticed_time;
 
 void UpdateBrain(const Timestep &in ts){
-    startled = false;
+    startled = false;    
     if(GetInputDown(this_mo.controller_id, "grab")){
         grab_key_time += ts.step();
     } else {
@@ -55,9 +55,9 @@ void UpdateBrain(const Timestep &in ts){
         {
             drop_key_state = _dks_pick_up;
         } else {
-            if(GetInputDown(this_mo.controller_id, "crouch") &&
-               duck_amount > 0.5f &&
-               on_ground &&
+            if(GetInputDown(this_mo.controller_id, "crouch") && 
+               duck_amount > 0.5f && 
+               on_ground && 
                !flip_info.IsFlipping())
             {
                 drop_key_state = _dks_drop;
@@ -65,8 +65,8 @@ void UpdateBrain(const Timestep &in ts){
                 drop_key_state = _dks_throw;
             }
         }
-    }
-
+    } 
+    
     if(!GetInputDown(this_mo.controller_id, "item")){
         item_key_state = _iks_nothing;
     } else if (item_key_state == _iks_nothing){
@@ -83,7 +83,7 @@ void UpdateBrain(const Timestep &in ts){
 }
 
 vec3 GetTargetJumpVelocity() {
-    return vec3(0.0f);
+    return vec3(0.0f);    
 }
 
 bool TargetedJump() {
@@ -179,7 +179,7 @@ bool WantsToSheatheItem() {
 
 bool WantsToUnSheatheItem(int &out src) {
     if(!this_mo.controlled) return false;
-    if(item_key_state != _iks_unsheathe){
+    if(item_key_state != _iks_unsheathe){ 
         return false;
     }
     src = -1;
@@ -237,7 +237,7 @@ bool WantsToDodge(const Timestep &in ts) {
 }
 
 bool WantsToCancelAnimation() {
-    return GetInputDown(this_mo.controller_id, "jump") ||
+    return GetInputDown(this_mo.controller_id, "jump") || 
            GetInputDown(this_mo.controller_id, "crouch") ||
            GetInputDown(this_mo.controller_id, "grab") ||
            GetInputDown(this_mo.controller_id, "attack") ||
@@ -251,7 +251,7 @@ bool WantsToCancelAnimation() {
 vec3 GetTargetVelocity() {
     vec3 target_velocity(0.0f);
     if(!this_mo.controlled) return target_velocity;
-
+    
     vec3 right;
     {
         right = camera.GetFlatFacing();
@@ -266,7 +266,7 @@ vec3 GetTargetVelocity() {
     if(length_squared(target_velocity)>1){
         target_velocity = normalize(target_velocity);
     }
-
+    
     if(trying_to_get_weapon > 0){
         target_velocity = get_weapon_dir;
     }
@@ -282,13 +282,13 @@ void ChooseAttack(bool front) {
     if(on_ground){
         if(!WantsToCrouch()){
             if(front){
-                curr_attack = "stationary";
+                curr_attack = "stationary";            
             } else {
                 curr_attack = "moving";
             }
         } else {
             curr_attack = "low";
-        }
+        }    
     } else {
         curr_attack = "air";
     }
