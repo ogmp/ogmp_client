@@ -518,7 +518,7 @@ void HandleConnection() {
 								if(remote_player_dirz == 0.0f) {
 									remote_player.Execute("dir_z = 0.0f;");
 								} else{
-									remote_player.Execute("dir_z = "+ remote_player_dirz +"f;");
+									remote_player.Execute("dir_z = "+ remote_player_dirz +";");
 								}
 								remote_player.position.x = remote_player_posx;
 								remote_player.position.y = remote_player_posy;
