@@ -1,6 +1,6 @@
 #include "ui_effects.as"
 #include "threatcheck.as"
-#include "../Mods/ogmp/Data/Scripts/ogmp_challengelevel.as"
+#include "ogmp_challengelevel.as"
 
 bool reset_allowed = true;
 float time = 0.0f;

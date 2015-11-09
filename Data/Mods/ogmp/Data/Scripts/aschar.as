@@ -1,7 +1,7 @@
 #include "interpdirection.as"
 #include "aschar_aux.as"
 #include "aircontrols.as"
-#include "../Mods/ogmp/Data/Scripts/ogmp_aschar.as"
+#include "ogmp_aschar.as"
 
 enum WalkDir {WALK_BACKWARDS, STRAFE, FORWARDS};
 

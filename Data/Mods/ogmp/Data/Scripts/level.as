@@ -1,6 +1,6 @@
 #include "ui_effects.as"
 #include "dialogue.as"
-#include "../Mods/ogmp/Data/Scripts/ogmp_challengelevel.as"
+#include "ogmp_level.as"
 
 int controller_id = 0;
 bool has_gui = false;

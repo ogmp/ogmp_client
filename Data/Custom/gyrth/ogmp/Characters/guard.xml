@@ -1,5 +1,0 @@
-<?xml version="1.0" ?>
-<Actor>
-	<Character>Data/Characters/guard.xml</Character>
-    <ControlScript>../Custom/gyrth/ogmp/Scripts/remote_player.as</ControlScript>
-</Actor>

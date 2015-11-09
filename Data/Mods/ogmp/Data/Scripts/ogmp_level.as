@@ -43,7 +43,7 @@ void CheckKeys() {
 		}
 
 		// Now we can create the html document. This is the object that will actually connect to the server.
-		client_connect_id = gui.AddGUI("gamemenu", "ClientConnect\\clientconnect.html", GetScreenWidth()/1.5f, 500, 0);
+		client_connect_id = gui.AddGUI("gamemenu", "ClientConnect\\clientconnect.html", int(GetScreenWidth()/1.5f), 500, 0);
 		has_client_connect_gui = true;
 		gui.Execute(client_connect_id,"level = \""+level_name+"\";");
 
@@ -208,8 +208,8 @@ void HandleConnection() {
 						for(int i=0; i<GetNumCharacters(); ++i) {
 							PrintDebug("Adding player " + i + ": " + username + "\n");
 							
-							MovementObject@ char = ReadCharacter(i);
-							if(char.controlled) {
+							MovementObject@ other_char = ReadCharacter(i);
+							if(other_char.controlled) {
 								PrintDebug("Player is controlled\n");
 								
 								Object@ char_obj = ReadObjectFromID(char.GetID());
@@ -225,9 +225,9 @@ void HandleConnection() {
 								} else{
 									params.AddString("Teams", team);
 								}
-								char.Execute("SwitchCharacter(\"Data/Characters/" + character_dir + ".xml\");");
+								other_char.Execute("SwitchCharacter(\"Data/Characters/" + character_dir + ".xml\");");
 							} else{
-								delete_chars.insertLast(char.GetID());
+								delete_chars.insertLast(other_char.GetID());
 							}
 						}
 
@@ -262,7 +262,7 @@ void HandleConnection() {
 							if(name == "username") {
 								new_player_username = value;
 							} else if(name == "character") {
-								new_player_char_dir = "Data/Custom/gyrth/ogmp/Characters/" + value + ".xml";
+								new_player_char_dir = "Data/Characters/ogmp/" + value + ".xml";
 							} else if(name == "team") {
 								new_player_team = value;
 							} else if(name == "posx") {
@@ -728,9 +728,9 @@ void DrawUsernames() {
 
 		int num_canvases = int(dialogue_text_canvases.size());
 		int assigned_canvas = -1;
-		for(int i=0; i<num_canvases; ++i) {
-			if(dialogue_text_canvases[i].obj_id == obj.GetID()) {
-				assigned_canvas = i;
+		for(int j=0; j<num_canvases; ++j) {
+			if(dialogue_text_canvases[j].obj_id == obj.GetID()) {
+				assigned_canvas = j;
 			}
 		}
 		if(assigned_canvas == -1) {
@@ -822,9 +822,9 @@ void Disconnect() {
 	// Remove other players.
 	int num = GetNumCharacters();
 	for(int i = 1; i<num; i++) {
-		MovementObject@ char = ReadCharacter(i);
-		PrintDebug("Delete character" + char.GetID() + "\n");
-		DeleteObjectID(char.GetID());
+		MovementObject@ other_char = ReadCharacter(i);
+		PrintDebug("Delete character" + other_char.GetID() + "\n");
+		DeleteObjectID(other_char.GetID());
 	}
 	remote_players.resize(0);
 
