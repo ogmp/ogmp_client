@@ -60,7 +60,7 @@
 		$.ajax({
 			type: "POST",
 			url : "http://" + server_address,
-			data : message,
+			data : JSON.stringify(message),
 			crossDomain: true,
 			success: function(data, textStatus, jqXHR)
 			{
