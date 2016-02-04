@@ -481,22 +481,26 @@ void HandleChat() {
 		return;
 	}
 
-	string chat_callback = gui.GetCallback(chat_id);
+	string callback = gui.GetCallback(chat_id);
 
-	while(chat_callback != "") {
-		PrintDebug("chat callback:" + chat_callback + "\n");
-	
-		if(chat_callback == '!unfocus') {
+	while(callback != "") {
+		if(callback == '!unfocus') {
 			has_chat_gui = false;
 			break;
 		}
 
-		string filtered = join( chat_callback.split( "\"" ), "" );
-		string message = "type=Message" + "&name=" + username + "&uid=" + client_uid + "&text=" + filtered ;
-		PrintDebug(message + "\n");
-		gui.Execute(client_connect_id,"sendUpdate(\""+message+"\")");
+		JSON chatData;
+		JSONValue chatDataRoot( JSONobjectValue );
+		chatDataRoot["type"] = "Message";
+		chatDataRoot["name"] = "username";
+		chatDataRoot["uid"] = "client_uid";
+		chatDataRoot["uid"] = callback;
+		chatData.getRoot() = chatDataRoot;
+
+		gui.Execute(client_connect_id,"sendUpdate(" + chatData.writeString(true) + ")");
+
 		has_chat_gui = false;
-		chat_callback = gui.GetCallback(chat_id);
+		callback = gui.GetCallback(chat_id);
 	}
 }
 
@@ -559,42 +563,46 @@ void SendUpdate() {
 		if(delay <= 0.0f) {
 			MovementObject@ char = ReadCharacter(0);
 
-			string message = "type=Update&uid=" + client_uid +
-			"&posx=" + char.position.x +
-			"&posy=" + char.position.y +
-			"&posz=" + char.position.z +
-			"&dirx=" + char.GetFloatVar("dir_x") +
-			"&dirz=" + char.GetFloatVar("dir_z") +
-			"&crouch=" + char.GetBoolVar("MPWantsToCrouch") +
-			"&jump=" + char.GetBoolVar("MPWantsToJump") +
-			"&attack=" + char.GetBoolVar("MPWantsToAttack") +
-			"&grab=" + char.GetBoolVar("MPWantsToGrab") +
-			"&item=" + char.GetBoolVar("MPWantsToItem") +
-			"&drop=" + char.GetBoolVar("MPWantsToDrop") +
-			"&roll=" + char.GetBoolVar("MPWantsToRoll") +
-			"&offwall=" + char.GetBoolVar("MPWantsToJumpOffWall") +
-			"&activeblock=" + char.GetBoolVar("MPActiveBlock") +
-			"&blood_damage=" + char.GetFloatVar("blood_damage") +
-			"&blood_health=" + char.GetFloatVar("blood_health") +
-			"&block_health=" + char.GetFloatVar("block_health") +
-			"&temp_health=" + char.GetFloatVar("temp_health") +
-			"&permanent_health=" + char.GetFloatVar("permanent_health") +
-			"&knocked_out=" + char.GetIntVar("knocked_out") +
-			"&lives=" + char.GetIntVar("lives") +
-			"&blood_amount=" + char.GetFloatVar("blood_amount") +
-			"&recovery_time=" + char.GetFloatVar("recovery_time") +
-			"&roll_recovery_time=" + char.GetFloatVar("roll_recovery_time") +
-			"&ragdoll_type=" + char.GetIntVar("ragdoll_type") +
-			"&blood_delay=" + char.GetIntVar("blood_delay") +
-			"&cut_throat=" + char.GetBoolVar("cut_throat") +
-			"&cut_torso=" + char.GetBoolVar("cut_torso") +
-			"&state=" + char.GetIntVar("state");
+			JSON updateData;
+			JSONValue updateDataRoot( JSONobjectValue );
+			updateDataRoot["type"] = "Update";
+			updateDataRoot["uid"] = "client_uid";
+			updateDataRoot["posx"] = char.position.x;
+			updateDataRoot["posy"] = char.position.y;
+			updateDataRoot["posz"] = char.position.z;
+			updateDataRoot["dirx"] = char.GetFloatVar("dir_x");
+			updateDataRoot["dirz"] = char.GetFloatVar("dir_z");
+			updateDataRoot["crouch"] = char.GetBoolVar("MPWantsToCrouch");
+			updateDataRoot["jump"] = char.GetBoolVar("MPWantsToJump");
+			updateDataRoot["attack"] = char.GetBoolVar("MPWantsToAttack");
+			updateDataRoot["grab"] = char.GetBoolVar("MPWantsToGrab");
+			updateDataRoot["item"] = char.GetBoolVar("MPWantsToItem");
+			updateDataRoot["drop"] = char.GetBoolVar("MPWantsToDrop");
+			updateDataRoot["roll"] = char.GetBoolVar("MPWantsToRoll");
+			updateDataRoot["offwall"] = char.GetBoolVar("MPWantsToJumpOffWall");
+			updateDataRoot["activeblock"] = char.GetBoolVar("MPActiveBlock");
+			updateDataRoot["blood_damage"] = char.GetFloatVar("blood_damage");
+			updateDataRoot["blood_health"] = char.GetFloatVar("blood_health");
+			updateDataRoot["block_health"] = char.GetFloatVar("block_health");
+			updateDataRoot["temp_health"] = char.GetFloatVar("temp_health");
+			updateDataRoot["permanent_health"] = char.GetFloatVar("permanent_health");
+			updateDataRoot["knocked_out"] = char.GetIntVar("knocked_out");
+			updateDataRoot["lives"] = char.GetIntVar("lives");
+			updateDataRoot["blood_amount"] = char.GetFloatVar("blood_amount");
+			updateDataRoot["recovery_time"] = char.GetFloatVar("recovery_time");
+			updateDataRoot["roll_recovery_time"] = char.GetFloatVar("roll_recovery_time");
+			updateDataRoot["ragdoll_type"] = char.GetIntVar("ragdoll_type");
+			updateDataRoot["blood_delay"] = char.GetIntVar("blood_delay");
+			updateDataRoot["cut_throat"] = char.GetBoolVar("cut_throat");
+			updateDataRoot["cut_torso"] = char.GetBoolVar("MPWacut_torsotsToGrab");
+			updateDataRoot["state"] = char.GetIntVar("state");
+			updateData.getRoot() = updateDataRoot;
 
 			char.Execute("MPWantsToRoll = false;");
 			char.Execute("MPWantsToJumpOffWall = false;");
 			char.Execute("MPActiveBlock = false;");
 
-			gui.Execute(client_connect_id,"sendUpdate(\""+message+"\")");
+			gui.Execute(client_connect_id,"sendUpdate(" + chatData.writeString(true) + ")");
 			delay += frequency;
 		}
 	}
