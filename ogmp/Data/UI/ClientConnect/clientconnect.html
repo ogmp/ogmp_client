@@ -47,7 +47,7 @@
 	var posz = 0;
 
 	function closeWindow() {
-		Client.GenericCallback("closeWindow");
+		Client.GenericCallback(JSON.stringify({"command": "closeWindow"}));
 		Client.Hide();
 	}
 	function connectSuccessful() {
