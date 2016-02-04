@@ -602,7 +602,7 @@ void SendUpdate() {
 			char.Execute("MPWantsToJumpOffWall = false;");
 			char.Execute("MPActiveBlock = false;");
 
-			gui.Execute(client_connect_id,"sendUpdate(" + chatData.writeString(true) + ")");
+			gui.Execute(client_connect_id,"sendUpdate(" + updateData.writeString(true) + ")");
 			delay += frequency;
 		}
 	}
