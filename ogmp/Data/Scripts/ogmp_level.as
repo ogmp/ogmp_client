@@ -202,13 +202,12 @@ void HandleConnection() {
 
 						gui.Execute(chat_id,"name = '"+username+"';");
 
-						// Prepare other players or remove them.
-						array<int> delete_chars;
-
 						for(int i=0; i<GetNumCharacters(); ++i) {
 							PrintDebug("Adding player " + i + ": " + username + "\n");
 							
 							MovementObject@ other_char = ReadCharacter(i);
+							//Every known character needs to be removed or else the situationawareness script will check the nonexisting movementobjects
+							other_char.Execute("situation.clear();");
 							if(other_char.controlled) {
 								PrintDebug("Player is controlled\n");
 								
@@ -227,20 +226,10 @@ void HandleConnection() {
 								}
 								other_char.Execute("SwitchCharacter(\"Data/Characters/" + character_dir + ".xml\");");
 							} else{
-								delete_chars.insertLast(other_char.GetID());
+								DeleteObjectID(other_char.GetID());
+								i--;
 							}
 						}
-
-						int num = delete_chars.size();
-						for(int i = 0;i<num;i++) {
-							PrintDebug("Delete character" + delete_chars[i] + "\n");
-							
-							DeleteObjectID(delete_chars[i]);
-						}
-
-						//Every known character needs to be removed or else the situationawareness script will check the nonexisting movementobjects
-						MovementObject@ temp_char = ReadCharacter(0);
-						temp_char.Execute("situation.clear();");
 					} else if(first_level[a][0][1] == "Timeout") {
 						PrintDebug("Timeout\n");
 						Disconnect();
@@ -275,7 +264,7 @@ void HandleConnection() {
 						}
 
 						//Then the new player is spawned 
-						int new_player_id = CreateObject(new_player_char_dir); // TODO: check this out
+						int new_player_id = CreateObject(new_player_char_dir, false);
 
 						//The newly created character is always the last item in the GetNumCharacters list.
 						MovementObject@ new_char = ReadCharacter(GetNumCharacters()-1);
