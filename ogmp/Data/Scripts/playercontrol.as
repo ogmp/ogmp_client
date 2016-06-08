@@ -309,3 +309,20 @@ int CombatSong() {
 int IsAggressive() {
     return 0;
 }
+
+int GetLeftFootPlanted(){
+    if(foot[0].progress == 1.0f){
+        return 1;
+    }else{
+        return 0;
+    }
+}
+
+int GetRightFootPlanted(){
+    Print("progress " + foot[1].progress + "\n");
+    if(foot[1].progress >= 1.0f){
+        return 1;
+    }else{
+        return 0;
+    }
+}

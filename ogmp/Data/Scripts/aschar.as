@@ -54,6 +54,7 @@ bool backslash = false;
 float last_knife_time = 0.0f;
 int knife_layer_id = -1;
 int throw_knife_layer_id = -1;
+int swim_layer_id = -1;
 
 float plant_rustle_delay = 0.0f;
 float in_plant = 0.0f;
@@ -69,6 +70,8 @@ float test_talking_amount = 0.0f;
 
 int knocked_out = _awake;
 float knocked_out_time = 0.0f;
+
+bool ignore_death = false;
 
 float speak_sound_delay = 0.0f;
 vec3 dialogue_torso_target;
@@ -183,6 +186,10 @@ int ragdoll_type;
 int ragdoll_layer_fetal;
 int ragdoll_layer_catchfallfront;
 float ragdoll_limp_stun;
+array<int> fixed_bone_ids;
+array<vec3> fixed_bone_pos;
+float impale_timer = 0.0f;
+bool col_up_down = false;
 
 const int _miss = 0;
 const int _going_to_block = 1;
@@ -195,6 +202,7 @@ const float drop_weapon_probability = 0.2f;
 
 // whether the character is in the ground or in the air, and how long time has passed since the status changed. 
 bool on_ground = false;
+bool allow_rolling = true;
 
 const float _duck_speed_mult = 0.5f;
 
@@ -222,6 +230,7 @@ string hit_reaction_event;
 
 bool attack_animation_set = false;
 bool hit_reaction_anim_set = false;
+bool block_reaction_anim_set = false;
 bool hit_reaction_dodge = false;
 bool hit_reaction_thrown = false;
 int attacking_with_throw;
@@ -450,6 +459,7 @@ ExecutionType being_executed = NO_EXECUTION;
 
 void ChokedOut(int target){
     head_choke_queue = target;
+    AchievementEvent("choke_hold_kill");
 }
 
 void ParryItem(int id){
@@ -1338,10 +1348,16 @@ array<float> resting_mouth_pose;
 array<float> target_resting_mouth_pose;
 float resting_mouth_pose_time = 0.0f;
 
+float old_time = 0.0f;
+
 void Update(int num_frames) {
     CheckForNANPosAndVel(1);
     Timestep ts(time_step, num_frames);    
     time += ts.step();
+        
+    if( old_time > time )
+        Log( error, "Sanity check failure, timer was reset in player character: " + this_mo.getID() + "\n");
+    old_time = time;
 
     // Update talking
     if(test_talking){
@@ -1659,6 +1675,7 @@ void RecoverHealth() {
     blood_damage = 0.0f;
     temp_health = 1.0f;
     permanent_health = 1.0f;
+	ignore_death = false;
 }
 
 void Recover() {      
@@ -2138,6 +2155,7 @@ void UpdateState(const Timestep &in ts) {
      if(state == _ragdoll_state){ // This is not part of the else chain because
         UpdateRagDoll(ts);         // the character may wake up and need other
         HandlePickUp();          // state updates
+        HandleImpalement(ts);
     } 
     
     use_foot_plants = false;
@@ -3316,6 +3334,7 @@ int IsDodging(){
 int PrepareToBlock(const vec3&in dir, const vec3&in pos, int attacker_id){
     if(active_dodging){
         if(HandleDodge(dodge_dir, attacker_id)){
+            AchievementEvent("active_dodging");
             return _miss;
         }
     }
@@ -3438,6 +3457,11 @@ void AddBloodToCutPlaneWeapon(int attacker_id, vec3 dir) {
 }
 
 void TakeSharpDamage(float sharp_damage, vec3 pos, int attacker_id, bool allow_heavy_cut) {
+    if(this_mo.controlled){
+        AchievementEvent("player_took_sharp_damage");
+    }else{
+        AchievementEvent("ai_took_sharp_damage");
+    }
     this_mo.rigged_object().anim_client().AddLayer("Data/Animations/r_painflinch.anm",8.0f,0);
     TakeBloodDamage(sharp_damage);
     if(attack_getter2.HasCutPlane()){
@@ -3856,6 +3880,18 @@ void SetKnockedOut(int val) {
     }
 }
 
+void KillCharacter(){
+    HandleAIEvent(_damaged);
+    temp_health = -1.0f;
+    permanent_health = -1.0f;
+	blood_health = -1.0f;
+    knocked_out_time = the_time;
+	knocked_out = _dead;
+	ignore_death = true;
+    this_mo.StopVoice();
+	Ragdoll(_RGDL_LIMP);
+}
+
 void ReceiveMessage(string msg){
     TokenIterator token_iter;
     token_iter.Init();
@@ -3865,6 +3901,8 @@ void ReceiveMessage(string msg){
     string token = token_iter.GetToken(msg);
     if(token == "restore_health"){
         RecoverHealth();
+	} else if(token == "remove_health"){
+        KillCharacter();
     } else if(token == "start_talking"){
         test_talking = true;
     } else if(token == "stop_talking"){
@@ -3961,6 +3999,8 @@ void ReceiveMessage(string msg){
 void TakeDamage(float how_much){
     if(this_mo.controlled){
         AchievementEventFloat("player_damage", how_much);
+    }else{
+        AchievementEventFloat("ai_damage", how_much);
     }
     HandleAIEvent(_damaged);
     const float _permananent_damage_mult = 0.4f;
@@ -4602,6 +4642,7 @@ void UpdateGroundAttackControls(const Timestep &in ts) {
         sneak_throw_id = GetClosestCharacterID(range, _TC_ENEMY | _TC_CONSCIOUS | _TC_NON_RAGDOLL | _TC_UNAWARE);
     }
     if(throw_id != -1){
+
         if(this_mo.controlled){
             AchievementEvent("player_counter_attacked");
         }
@@ -4640,6 +4681,8 @@ void UpdateGroundAttackControls(const Timestep &in ts) {
     } else if(attack_id != -1){
         if(this_mo.controlled){
             AchievementEvent("player_attacked");
+        }else{
+            AchievementEvent("ai_attacked");
         }
         breath_speed += 2.0f;
         LoadAppropriateAttack(false);
@@ -5383,8 +5426,108 @@ void HandleCollisions(const Timestep &in ts) {
     if(length_squared(initial_vel) < length_squared(this_mo.velocity)){         // If speed is greater than before collision, set it to the
         this_mo.velocity = normalize(this_mo.velocity)*length(initial_vel);     // old speed
     }
+    HandleSpikeCollisions(ts);
 }
 
+void HandleSpikeCollisions(const Timestep &in ts){
+    vec3 end = this_mo.position - vec3(0,2,0);
+    
+    //col.GetObjRayCollision(start, end);
+    vec3 col_offset;
+    vec3 scale;
+    float size = 0.5f - duck_amount / 6;
+    //GetCollisionSphere(col_offset, scale, size);
+    vec3 start;
+    if(col_up_down){
+        start = this_mo.position - vec3(0, 0.1f, 0);
+    }else{
+        start = this_mo.position + vec3(0, 0.5f, 0);
+    }
+    col_up_down = !col_up_down;
+     
+    start -= vec3(0, duck_amount / 4, 0);
+    col.GetObjectsInSphere(start, size);
+
+    //DebugDrawWireSphere(start, size, vec3(1), _delete_on_update);
+    //DebugDrawWireScaledSphere(start, size, vec3(scale.x, scale.z, scale.y) ,vec3(1), _delete_on_update);
+    //DebugDrawLine(start, end, vec3(0,1,0), _delete_on_update);
+
+    if(sphere_col.NumContacts() > 0){
+        for(int i=0; i<sphere_col.NumContacts(); i++){
+            CollisionPoint coll = sphere_col.GetContact(i);            
+            if(coll.id > 0 && ReadObjectFromID(coll.id).GetLabel() == "impale"){
+                float force = length(this_mo.velocity);
+                Print("Speed: "+ force + "\n");
+                if(on_ground){
+                    TakeBloodDamage(force / 100);
+                    PlaySoundGroup("Data/Sounds/weapon_foley/cut/flesh_hit.xml", this_mo.position);
+                }else{
+                    TakeBloodDamage(force);
+                    PlaySoundGroup("Data/Sounds/weapon_foley/cut/slice.xml", this_mo.position);
+                }
+                
+                if(knocked_out != _awake){
+                    Ragdoll(_RGDL_INJURED);
+                    PlaySoundGroup("Data/Sounds/voice/animal2/voice_bunny_death.xml", this_mo.position);
+                }
+                break;
+                //Print("Label " + ReadObjectFromID(coll.id).GetLabel() + "\n");
+                //SetKnockedOut(_dead);
+                //Ragdoll(_RGDL_INJURED);
+                //PlaySoundGroup("Data/Sounds/weapon_foley/impact/weapon_knife_hit.xml", coll.position);
+            }
+        }
+    }
+}
+
+void HandleImpalement(const Timestep &in ts){
+    impale_timer += time_step;
+    if(!frozen && impale_timer > 0.01f){
+        float boneColSize = 0.1f;
+        Skeleton @skeleton = this_mo.rigged_object().skeleton();
+        for(int i=0, len=skeleton.NumBones(); i<len; ++i){
+            int pos = fixed_bone_ids.find(i);
+            if(pos == -1){
+                if(skeleton.HasPhysics(i) && i > 0){
+                    col.GetObjectsInSphere(skeleton.GetBoneTransform(i).GetTranslationPart(), boneColSize);
+                    //DebugDrawWireSphere(skeleton.GetBoneTransform(i).GetTranslationPart(), boneColSize, vec3(1), _delete_on_update);
+                    if(sphere_col.NumContacts() > 0){
+                        for(int p=0; p<sphere_col.NumContacts(); p++){
+                            CollisionPoint coll = sphere_col.GetContact(p);            
+                            if(coll.id > 0 && ReadObjectFromID(coll.id).GetLabel() == "impale"){
+                                this_mo.rigged_object().SetRagdollDamping(0.9f);
+                                this_mo.rigged_object().FixedRagdollPart(i,coll.position);
+
+                                //PlaySoundGroup("Data/Sounds/weapon_foley/cut/flesh_hit.xml", coll.position);
+                                //PlaySoundGroup("Data/Sounds/weapon_foley/impact/weapon_knife_hit.xml", coll.position);
+                                fixed_bone_pos.insertLast(coll.position);
+                                fixed_bone_ids.insertLast(i);
+                                for(int o = 0; o < 10; o++){
+                                    MakeParticle("Data/Particles/blooddrop.xml",coll.position,vec3(0, RangedRandomFloat(-1.0f, 1.0f), 0),GetBloodTint());
+                                }
+                                this_mo.rigged_object().CreateBloodDripAtBone(i, 1, vec3(0.0f,RangedRandomFloat(-10.0f,10.0f),RangedRandomFloat(-10.0f,10.0f)));
+                                return;
+                            }
+                        }
+                    }
+                }
+            }else{
+                //If the bone is too far from the collision point then release it.
+                if(skeleton.HasPhysics(i) && i > 0){
+                    //this_mo.rigged_object().CreateBloodDripAtBone(i, 1, vec3(0.0f,RangedRandomFloat(-10.0f,10.0f),RangedRandomFloat(-10.0f,10.0f)));
+                    //MakeParticle("Data/Particles/blooddrop.xml",skeleton.GetBoneTransform(i).GetTranslationPart(),vec3(0, -0.1f, 0),GetBloodTint());
+
+                    if(distance(fixed_bone_pos[pos], skeleton.GetBoneTransform(i).GetTranslationPart()) > 1.0f){
+                        this_mo.rigged_object().ClearBoneConstraints();
+                        fixed_bone_ids.resize(0);
+                        fixed_bone_pos.resize(0);
+                    }
+                }
+            }
+        }
+        impale_timer = 0.0f;
+    }
+}
 
 void UpdateDuckAmount(const Timestep &in ts) { // target_duck_amount is 1.0 when the character should crouch down, and 0.0 when it should stand straight.
     const float _duck_accel = 120.0f;
@@ -5514,6 +5657,7 @@ bool LoadAppropriateAttack(bool mirrored) {
            (curr_attack == "moving" && (ducking_enemy || ragdoll_enemy) && weapon_slots[primary_weapon_slot] == -1)){
             if(attack_distance < (_close_attack_range + range_extender * 0.5f) * this_mo.rigged_object().GetCharScale()){
                 attack_path = character_getter.GetAttackPath("stationary_close");
+                AchievementEvent("attack_stationary_close");
             } else {
                 attack_path = character_getter.GetAttackPath("stationary");
             }
@@ -5525,11 +5669,14 @@ bool LoadAppropriateAttack(bool mirrored) {
                 attack_path = character_getter.GetAttackPath("moving_close");
             } else {
                 attack_path = character_getter.GetAttackPath("moving");
+                AchievementEvent("attack_moving");
             }
         } else if(curr_attack == "low"){
             attack_path = character_getter.GetAttackPath("low");
+            AchievementEvent("attack_low");
         } else if(curr_attack == "air"){
             attack_path = character_getter.GetAttackPath("air");
+            AchievementEvent("attack_air");
         }
     }
 
@@ -5786,12 +5933,14 @@ void UpdateHitReaction(const Timestep &in ts) {
     if(this_mo.rigged_object().GetStatusKeyValue("cancel")>=1.0f && WantsToCancelAnimation() && hit_reaction_time > 0.1f){
         EndHitReaction();
     }
-    if(this_mo.rigged_object().GetStatusKeyValue("escape")>=1.0f && WantsToCounterThrow()){
+    if(this_mo.rigged_object().GetStatusKeyValue("escape")>=1.0f && WantsToCounterThrow() && !block_reaction_anim_set){
         level.SendMessage("character_throw_escape "+this_mo.getID() + " " + target_id);
         this_mo.SwapAnimation(attack_getter2.GetThrownCounterAnimPath());
         this_mo.rigged_object().anim_client().SetAnimationCallback("void EndHitReaction()");
         string sound = "Data/Sounds/weapon_foley/swoosh/weapon_whoos_big.xml";
         this_mo.PlaySoundGroupAttached(sound,this_mo.position);
+        AchievementEvent("character_throw_escape");
+        block_reaction_anim_set = true;
         //TimedSlowMotion(0.1f,0.3f, 0.1f);
     }
     hit_reaction_time += ts.step();
@@ -5846,6 +5995,7 @@ void SetState(int _state) {
         active_block_anim = false;
         hit_reaction_time = 0.0f;
         hit_reaction_anim_set = false;
+        block_reaction_anim_set = false;
         hit_reaction_thrown = false;
         hit_reaction_dodge = false;
         flip_modifier_rotation = 0.0f;
@@ -6345,6 +6495,9 @@ void HandleThrow() {
             } else {
                 if(!flip_info.IsFlipping()){
                     throw_knife_layer_id = this_mo.rigged_object().anim_client().AddLayer("Data/Animations/r_knifethrowlayer.anm",8.0f,flags);
+                    if(this_mo.controlled){
+                        AchievementEvent("player_threw_knife");
+                    }
                 } else {
                     throw_knife_layer_id = this_mo.rigged_object().anim_client().AddLayer("Data/Animations/r_knifethrowfliplayer.anm",8.0f,flags);
                 }
@@ -6952,6 +7105,9 @@ void Reset() {
     ResetMind();
     reset_no_collide = the_time;
     SetTetherID(-1);
+    this_mo.rigged_object().ClearBoneConstraints();
+    fixed_bone_ids.resize(0);
+    fixed_bone_pos.resize(0);
 }
 
 void PostReset() {
@@ -7698,9 +7854,19 @@ void DrawArms(const BoneTransform &in chest_transform, const BoneTransform &in l
             }
             float softness_override = rigged_object.GetStatusKeyValue(right==1?"rightarm_blend":"leftarm_blend");
             //softness_override = mix(softness_override, 1.0f, min(1.0f, flip_ik_fade));
+            
+            //We want to make the arms stiff when the character is climbing with arms,
             if(ledge_info.on_ledge){
                 softness_override = 1.0f;
             }
+
+            //Check if character has been teleported and prevent affects of arm physics if that's the case.
+            if( length(arm_points[start+2]-old_arm_points[start+2]) > 10.0f )
+            {
+                //Log(warning, "Massive movement in arm positions detected, skipping arm physics for this frame. TODO\n");
+                softness_override = 1.0f;
+            }
+
             { // Blend with original position to override physics
                 arm_points[start+0] = mix(arm_points[start+0], shoulder, softness_override);
                 arm_points[start+1] = mix(arm_points[start+1], elbow, softness_override);
@@ -7784,8 +7950,9 @@ void DrawArms(const BoneTransform &in chest_transform, const BoneTransform &in l
             GetRotationBetweenVectors(elbow-wrist, arm_points[start+1]-arm_points[start+2], hand_rotation);
             
             vec3 hand_offset = hand-wrist;
-            elbow = arm_points[start+1];
-            wrist = arm_points[start+2];
+            // Enforce arm length
+            elbow = arm_points[start] + normalize(arm_points[start+1] - arm_points[start]) * upper_arm_length[right];
+            wrist = elbow + normalize(arm_points[start+2] - arm_points[start+1]) * lower_arm_length[right];
             hand = wrist + Mult(hand_rotation, hand_offset);
         }
 
@@ -7829,6 +7996,8 @@ array<vec3> ear_points;
 array<float> target_ear_rotation;
 array<float> ear_rotation;
 array<float> ear_rotation_time;
+
+int skip_ear_physics_counter = 0;
 
 void DrawEar(bool right, const BoneTransform &in head_transform, int num_frames){
     EnterTelemetryZone("DrawEar");
@@ -7911,42 +8080,61 @@ void DrawEar(bool right, const BoneTransform &in head_transform, int num_frames)
             temp_old_ear_points[start+i] = ear_points[start+i];
         }
 
+        //The following contains ear physics, they are acting odd in cutscenes, therefore we disabled them during them.
+        //One of the values in this routine goes insane for some reason.
+
         float ear_damping = 0.95f;
         float low_ear_rotation_damping = 0.9f;
         float up_ear_rotation_damping = 0.92f;
 
         ear_points[start+0] = base;
         vec3 vel_offset = this_mo.velocity * time_step * num_frames;
-        ear_points[start+1] += (((ear_points[start+1] - old_ear_points[start+1]) - vel_offset) * pow(ear_damping, num_frames) + vel_offset) * ear_damping * ear_damping;
-        ear_points[start+2] += (((ear_points[start+2] - old_ear_points[start+2]) - vel_offset) * pow(ear_damping, num_frames) + vel_offset) * ear_damping * ear_damping;
-         quaternion rotation;
-        GetRotationBetweenVectors(middle-base, ear_points[start+1]-base, rotation);
-        vec3 rotated_tip = Mult(rotation, tip-middle)+ear_points[start+1];
-        ear_points[start+2] += (rotated_tip - ear_points[start+2]) * (1.0f - pow(up_ear_rotation_damping, num_frames));
-        ear_points[start+1] += (middle - ear_points[start+1]) * (1.0f - pow(low_ear_rotation_damping, num_frames));
-       
-        for(int i=0; i<3; ++i){
-            ear_points[start+1] = base + normalize(ear_points[start+1]-base) * low_dist;
-            vec3 mid = (ear_points[start+1] + ear_points[start+2])*0.5f;
-            vec3 dir = normalize(ear_points[start+1] - ear_points[start+2]);
-            ear_points[start+2] = mid - dir * high_dist * 0.5f;
-            ear_points[start+1] = mid + dir * high_dist * 0.5f;
+
+        if( length(ear_points[start+0]-old_ear_points[start+0]) > 10.0f )
+        {
+            //Log(warning, "Massive movement in ear_position detected, skipping ear physics for a couple of frames until position is gussed to have returned to stable. TODO\n");
+            //TODO: Find the source of the massive position change, and fix it, often caused by something 
+            //when using the dialogue editor
+            skip_ear_physics_counter = 5;
         }
 
-        if(flip_info.IsFlipping() && on_ground){
-            col.GetSweptSphereCollision(ear_points[start+0], ear_points[start+1], 0.03f);
-            ear_points[start+1] = sphere_col.adjusted_position;
-            col.GetSweptSphereCollision(ear_points[start+1], ear_points[start+2], 0.03f);
-            ear_points[start+2] = sphere_col.adjusted_position;
+        if( skip_ear_physics_counter == 0 )
+        {
+            ear_points[start+1] += (((ear_points[start+1] - old_ear_points[start+1]) - vel_offset) * pow(ear_damping, num_frames) + vel_offset) * ear_damping * ear_damping;
+            ear_points[start+2] += (((ear_points[start+2] - old_ear_points[start+2]) - vel_offset) * pow(ear_damping, num_frames) + vel_offset) * ear_damping * ear_damping;
+             quaternion rotation;
+            GetRotationBetweenVectors(middle-base, ear_points[start+1]-base, rotation);
+            vec3 rotated_tip = Mult(rotation, tip-middle)+ear_points[start+1];
+            ear_points[start+2] += (rotated_tip - ear_points[start+2]) * (1.0f - pow(up_ear_rotation_damping, num_frames));
+            ear_points[start+1] += (middle - ear_points[start+1]) * (1.0f - pow(low_ear_rotation_damping, num_frames));
+           
+            for(int i=0; i<3; ++i){
+                ear_points[start+1] = base + normalize(ear_points[start+1]-base) * low_dist;
+                vec3 mid = (ear_points[start+1] + ear_points[start+2])*0.5f;
+                vec3 dir = normalize(ear_points[start+1] - ear_points[start+2]);
+                ear_points[start+2] = mid - dir * high_dist * 0.5f;
+                ear_points[start+1] = mid + dir * high_dist * 0.5f;
+            }
+
+            if(flip_info.IsFlipping() && on_ground){
+                col.GetSweptSphereCollision(ear_points[start+0], ear_points[start+1], 0.03f);
+                ear_points[start+1] = sphere_col.adjusted_position;
+                col.GetSweptSphereCollision(ear_points[start+1], ear_points[start+2], 0.03f);
+                ear_points[start+2] = sphere_col.adjusted_position;
+            }
+
+            //debug_lines.push_back(DebugDrawLine(ear_points[start+0], ear_points[start+1], vec3(1.0f), _fade));
+            //debug_lines.push_back(DebugDrawLine(ear_points[start+1], ear_points[start+2], vec3(1.0f), _fade));
+            rigged_object.RotateBoneToMatchVec(ear_points[start+0], ear_points[start+1], ik_chain_elements[chain_start+1]);
+            rigged_object.RotateBoneToMatchVec(ear_points[start+1], ear_points[start+2], ik_chain_elements[chain_start+0]);
+            middle = ear_points[start+1];
+            tip = ear_points[start+2];
+        }
+        else
+        {
+            skip_ear_physics_counter--;
         }
 
-        //debug_lines.push_back(DebugDrawLine(ear_points[start+0], ear_points[start+1], vec3(1.0f), _fade));
-        //debug_lines.push_back(DebugDrawLine(ear_points[start+1], ear_points[start+2], vec3(1.0f), _fade));
-        rigged_object.RotateBoneToMatchVec(ear_points[start+0], ear_points[start+1], ik_chain_elements[chain_start+1]);
-        rigged_object.RotateBoneToMatchVec(ear_points[start+1], ear_points[start+2], ik_chain_elements[chain_start+0]);
-        middle = ear_points[start+1];
-        tip = ear_points[start+2];
-    
         for(int i=0; i<3; ++i){
             old_ear_points[start+i] = temp_old_ear_points[start+i];
         }
@@ -8057,9 +8245,11 @@ void DrawTail(int num_frames){
         for(int i=0; i<chain_length+1; ++i){
             temp_old_tail_points[i] = tail_points[i];
         }
+        // Damping
         for(int i=0; i<chain_length; ++i){
             tail_points[i] += (tail_points[i] - old_tail_points[i]) * 0.95f;
         }
+        // Gravity
         for(int i=0; i<chain_length; ++i){
             tail_points[i].y -= time_step * num_frames * 0.1f;
         }
@@ -8100,9 +8290,17 @@ void DrawTail(int num_frames){
         }
     }
 
+    // Enforce tail lengths for drawing
+    vec3 root = rigged_object.GetTransformedBonePoint(ik_chain_elements[chain_start+chain_length-1], 0);
+    vec3 root_tail = rigged_object.GetTransformedBonePoint(ik_chain_elements[chain_start+chain_length-1], 1);
+    float root_len = distance(root, root_tail);
+    temp_old_tail_points[chain_length-1] = root + normalize(tail_points[chain_length-1] - root) * root_len;
+    for(int i=chain_length-1; i>0; --i){
+        temp_old_tail_points[i-1] = temp_old_tail_points[i] + normalize(tail_points[i-1] - tail_points[i]) * tail_section_length[i-1];
+    }
 
     for(int i=0; i<chain_length; ++i){
-        rigged_object.RotateBoneToMatchVec(tail_points[i+1], tail_points[i], ik_chain_elements[chain_start+i]);        
+        rigged_object.RotateBoneToMatchVec(temp_old_tail_points[i+1], temp_old_tail_points[i], ik_chain_elements[chain_start+i]);        
     }
     if(draw_skeleton_lines){
         for(int i=0; i<chain_length; ++i){
@@ -8110,6 +8308,83 @@ void DrawTail(int num_frames){
         }
     }
     LeaveTelemetryZone();
+}
+
+int shadow_id = -1;
+int lf_shadow_id = -1;
+int rf_shadow_id = -1;
+void UpdateShadow() {   
+    RiggedObject@ rigged_object = this_mo.rigged_object();
+    Skeleton@ skeleton = rigged_object.skeleton();
+    if(shadow_id != -1){
+        DeleteObjectID(shadow_id);
+        shadow_id = -1;
+    }
+    if(lf_shadow_id != -1){
+        DeleteObjectID(lf_shadow_id);
+        lf_shadow_id = -1;
+    }
+    if(rf_shadow_id != -1){
+        DeleteObjectID(rf_shadow_id);
+        rf_shadow_id = -1;
+    }
+        vec3 head, torso, left_foot, right_foot;
+        int bone;
+
+        bone = skeleton.IKBoneStart("torso");
+        BoneTransform transform = BoneTransform(rigged_object.GetDisplayBoneMatrix(bone));
+        BoneTransform bind_matrix = invert(skeleton_bind_transforms[bone]);
+        transform = transform;
+        torso = transform * skeleton.GetPointPos(skeleton.GetBonePoint(bone, 0));
+
+        bone = skeleton.IKBoneStart("head");
+        transform = BoneTransform(rigged_object.GetDisplayBoneMatrix(bone));
+        bind_matrix = invert(skeleton_bind_transforms[bone]);
+        transform = transform;
+        head = transform * skeleton.GetPointPos(skeleton.GetBonePoint(bone, 0));
+
+        bone = skeleton.IKBoneStart("left_leg");
+        transform = BoneTransform(rigged_object.GetDisplayBoneMatrix(bone));
+        bind_matrix = invert(skeleton_bind_transforms[bone]);
+        transform = transform;// * bind_matrix;
+        left_foot = transform * skeleton.GetPointPos(skeleton.GetBonePoint(bone, 0));
+
+        bone = skeleton.IKBoneStart("right_leg");
+        transform = BoneTransform(rigged_object.GetDisplayBoneMatrix(bone));
+        bind_matrix = invert(skeleton_bind_transforms[bone]);
+        transform = transform;
+        right_foot = transform * skeleton.GetPointPos(skeleton.GetBonePoint(bone, 0));
+
+        {
+            shadow_id = CreateObject("Data/Objects/Decals/blob_shadow.xml", true);    
+            Object @shadow_obj = ReadObjectFromID(shadow_id);
+            //shadow_obj.SetTranslation(this_mo.position + vec3(0.0,0.3,0.0));
+            vec3 scale = vec3(1.5,max(1.5, distance((left_foot+right_foot)*0.5, head)*2.0), 1.5);
+            shadow_obj.SetScale(scale);
+
+            shadow_obj.SetTranslation(torso + vec3(0.0, -0.3, 0.0));
+            //DebugDrawWireScaledSphere(shadow_obj.GetTranslation(),1.0f,shadow_obj.GetScale()*0.5, vec3(1.0f),_delete_on_draw);
+        }
+        {
+            lf_shadow_id = CreateObject("Data/Objects/Decals/blob_shadow.xml", true);    
+            Object @shadow_obj = ReadObjectFromID(lf_shadow_id);
+
+            shadow_obj.SetTranslation(left_foot + vec3(0.0,0.0,0.0));
+            shadow_obj.SetScale(vec3(0.4));        
+            //DebugDrawWireScaledSphere(shadow_obj.GetTranslation(),1.0f,shadow_obj.GetScale()*0.5, vec3(1.0f),_delete_on_draw);
+        }
+        {
+            rf_shadow_id = CreateObject("Data/Objects/Decals/blob_shadow.xml", true);    
+            Object @shadow_obj = ReadObjectFromID(rf_shadow_id);
+
+            shadow_obj.SetTranslation(right_foot + vec3(0.0,0.0,0.0));
+            shadow_obj.SetScale(vec3(0.4));        
+            //DebugDrawWireScaledSphere(shadow_obj.GetTranslation(),1.0f,shadow_obj.GetScale()*0.5, vec3(1.0f),_delete_on_draw);
+        }
+}
+
+void PreDraw() {
+    UpdateShadow();
 }
 
 void DrawBody(const BoneTransform &in hip_transform, const BoneTransform &in chest_transform){

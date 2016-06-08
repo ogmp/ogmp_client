@@ -1,8 +1,8 @@
 <? xml version="1.0" ?>
 <Mod>
-    <Id>ogmp</Id> 
-    <Name>Overgrowth Multiplayer Mod</Name> 
-    <Version>0.0.5</Version>
+    <Id>ogmp</Id>
+    <Name>Overgrowth Multiplayer Mod</Name>
+    <Version>0.0.6</Version>
     <Author>Gyrth and Surak</Author>
-    <SupportedVersion>a217</SupportedVersion>
+    <SupportedVersion>a225</SupportedVersion>
 </Mod>

@@ -131,7 +131,7 @@ void ReceiveMessage(string msg) {
         has_gui = false;
     } else if(token == "go_to_main_menu"){
         level.SendMessage("dispose_level");
-        LoadLevel("mainmenu");
+        LoadLevel("back");
     } else if(token == "clearhud"){
 	    hotspot_image_string.resize(0);
 	} else if(token == "manual_reset"){
@@ -203,6 +203,9 @@ void Update() {
                 }
                 break;
             }
+            if(callback == "media_mode"){
+                SetMediaMode(true);  
+            }
             if(callback == "settings"){
                 gui.RemoveGUI(gui_id);
                 OpenSettings(context);
@@ -217,7 +220,7 @@ void Update() {
     UpdateOGMP();
 
     if(!has_gui && GetInputDown(controller_id, "esc") && GetPlayerCharacterID() == -1){
-        gui_id = gui.AddGUI("gamemenu","dialogs\\gamemenu.html",220,270,0);
+        gui_id = gui.AddGUI("gamemenu","dialogs\\gamemenu.html",220,290,0);
         has_gui = true;
     }
 
