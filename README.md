@@ -1,4 +1,4 @@
-![Logo](http://ogmp.net/logo.png)
+![Logo](https://raw.githubusercontent.com/ogmp/resources/master/logo.png)
 
 # OGMP
 OGMP is the **O**ver**G**rowth **M**ulti**P**layer mod, an unoffical addition to the upcoming game [Overgrowth](http://www.wolfire.com/overgrowth) by Wolfire Games.
