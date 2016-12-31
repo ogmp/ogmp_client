@@ -1,7 +1,7 @@
 <html>
  <head>
   <link rel='stylesheet' href='../global/window.css' type='text/css'>
-  <link rel='stylesheet' type='text/css' href='../colorpicker/combo.css'> 
+  <link rel='stylesheet' type='text/css' href='../colorpicker/combo.css'>
   <link rel='stylesheet' href='../global/inspector.css' type='text/css'>
   <link rel='stylesheet' href='../global/chosen/chosen.css' type='text/css'>
   <style type='text/css'>
@@ -53,10 +53,11 @@
 	function connectSuccessful() {
 		$('body').hide();
 		Client.resize(0, 0);
-		Client.resetPosition();
+		//Client.resetPosition();
 	}
 
 	function sendUpdate(message) {
+    //console.log("Send: " + message);
 		$.ajax({
 			type: "POST",
 			url : "http://" + server_address,
@@ -64,7 +65,7 @@
 			crossDomain: true,
 			success: function(data, textStatus, jqXHR)
 			{
-				//console.log(data);
+				//console.log("Received: " + data);
 				Client.GenericCallback(data);
 			},
 			error: function (jqXHR, textStatus, errorThrown)
@@ -131,7 +132,7 @@
 			$('#ok').click();
 		}
 	});
-	
+
 	$('#cancel').bind('click', function() {
 		closeWindow();
 	});
