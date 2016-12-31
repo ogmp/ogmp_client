@@ -30,5 +30,8 @@ void UpdateOGMP() {
 		if(GetInputPressed(this_mo.controller_id, "grab")) {
 			MPActiveBlock = true;
 		}
+		vec3 targetVelocity = GetTargetVelocity();
+		dir_x = targetVelocity.x;
+		dir_z = targetVelocity.z;
 	}
 }

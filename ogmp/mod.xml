@@ -2,7 +2,7 @@
 <Mod>
     <Id>ogmp</Id>
     <Name>Overgrowth Multiplayer Mod</Name>
-    <Version>0.0.6</Version>
+    <Version>0.0.7</Version>
     <Author>Gyrth and Surak</Author>
-    <SupportedVersion>a225</SupportedVersion>
+    <SupportedVersion>a227</SupportedVersion>
 </Mod>

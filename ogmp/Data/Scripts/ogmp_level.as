@@ -25,7 +25,7 @@ array<MovementObject@> remote_players;
 void UpdateOGMP() {
 	CheckKeys();
 	HandleConnection();
-	HandleChat();	
+	HandleChat();
 	DrawUsernames();
 	SendUpdate();
 }
@@ -72,7 +72,7 @@ void CheckKeys() {
 				gui.Execute(playerlist_id,"server_address = \""+server_address+"\"");
 
 				showing_playerlist = true;
-			}		
+			}
 		}
 
 		if(showing_playerlist && !GetInputDown(controller_id, "f11")) {
@@ -109,7 +109,7 @@ void HandleConnection() {
 		//PrintDebug("Still here " + callback + "\n");
 		while(callback != "") {
 			//PrintDebug("client_connect callback: " + callback + "\n");
-			
+
 			//If there is a callback the gui should be closed.
 			if(has_client_connect_gui) {
 				PrintDebug("Disabling has client connect gui\n");
@@ -184,7 +184,7 @@ void HandleConnection() {
 
 						MovementObject@ char = ReadCharacter(player_id);
 						char.Execute("MPIsConnected = true;");
-						
+
 						// Chat
 						gui.Execute(client_connect_id,"connectSuccessful()");
 						PrintDebug("Successfully connected to server. UID: " + client_uid + "\n");
@@ -204,13 +204,13 @@ void HandleConnection() {
 
 						for(int i=0; i<GetNumCharacters(); ++i) {
 							PrintDebug("Adding player " + i + ": " + username + "\n");
-							
+
 							MovementObject@ other_char = ReadCharacter(i);
 							//Every known character needs to be removed or else the situationawareness script will check the nonexisting movementobjects
 							other_char.Execute("situation.clear();");
 							if(other_char.controlled) {
 								PrintDebug("Player is controlled\n");
-								
+
 								Object@ char_obj = ReadObjectFromID(char.GetID());
 								ScriptParams@ params = char_obj.GetScriptParams();
 
@@ -242,7 +242,7 @@ void HandleConnection() {
 						float new_player_posx;
 						float new_player_posy;
 						float new_player_posz;
-						
+
 						//First all the variables need to be extracted from the incomming message.
 						for (int b = 0; b < second_level_size; b++) {
 							string name = first_level[a][b][0];
@@ -263,7 +263,7 @@ void HandleConnection() {
 							}
 						}
 
-						//Then the new player is spawned 
+						//Then the new player is spawned
 						int new_player_id = CreateObject(new_player_char_dir, false);
 
 						//The newly created character is always the last item in the GetNumCharacters list.
@@ -296,7 +296,7 @@ void HandleConnection() {
 						} else{
 							params.AddString("Teams", new_player_team);
 						}
-						
+
 						PrintDebug("Adding character with name: " + new_player_username + " and char dir : " + new_player_char_dir + " and team " + new_player_team + "\n");
 					} else if(first_level[a][0][1] == "RemoveCharacter") {
 						int second_level_size = first_level[a].size();
@@ -307,7 +307,7 @@ void HandleConnection() {
 							PrintDebug("Command # " + a + " name: " + first_level[a][b][0] + " value: " + first_level[a][b][1] + "\n");
 							string name = first_level[a][b][0];
 							string value = first_level[a][b][1];
-							
+
 							if(name == "username") {
 								remove_name = value;
 							}
@@ -324,7 +324,7 @@ void HandleConnection() {
 									//If the character with the right name is found the object is deleted and we remove the MovementObject from the remote_players list.
 									remove_id = temp_char.GetID(); // TODO: check this out
 									remote_players.removeAt(i);
-									
+
 									// There can only be one, stop. Could crash otherwise.
 									break;
 								}
@@ -373,7 +373,6 @@ void HandleConnection() {
 						int remote_player_ragdoll_type;
 						bool remote_player_remove_blood;
 						bool remote_player_cut_throat;
-						bool remote_player_cut_torso;
 						int remote_player_state;
 
 						for (int b = 0; b < second_level_size; b++) {
@@ -381,7 +380,7 @@ void HandleConnection() {
 							string value = first_level[a][b][1];
 
 							//PrintDebug("Name: " + name + " Value: " + value + "\n");
-							
+
 							if(name == "username") {
 								remote_player_name = value;
 							} else if(name == "posx") {
@@ -438,15 +437,13 @@ void HandleConnection() {
 								remote_player_remove_blood = (value == "1");
 							} else if(name == "cut_throat") {
 								remote_player_cut_throat = (value == "1");
-							} else if(name == "cut_torso") {
-								remote_player_cut_torso = (value == "1");
 							} else if(name == "state") {
 								remote_player_state = parseInt(value);
 							}
 						}
 
 						int num_players = remote_players.size();
-						
+
 						for(int i = 0; i< num_players; i++) {
 							MovementObject@ temp_char = remote_players[i];
 							Object@ char_obj = ReadObjectFromID(temp_char.GetID());
@@ -472,7 +469,6 @@ void HandleConnection() {
 							if(remote_player.GetID() != -1) {
 								remote_player.Execute("lives = "+remote_player_lives+";");
 								remote_player.Execute("cut_throat = "+remote_player_cut_throat+";");
-								remote_player.Execute("cut_torso = "+remote_player_cut_torso+";");
 								remote_player.Execute("blood_amount = "+remote_player_blood_amount+";");
 								remote_player.Execute("recovery_time = "+remote_player_recovery_time+";");
 								remote_player.Execute("roll_recovery_time = "+remote_player_roll_recovery_time+";");
@@ -509,6 +505,7 @@ void HandleConnection() {
 								} else{
 									remote_player.Execute("dir_z = "+ remote_player_dirz +";");
 								}
+
 								remote_player.position.x = remote_player_posx;
 								remote_player.position.y = remote_player_posy;
 								remote_player.position.z = remote_player_posz;
@@ -524,12 +521,12 @@ void HandleConnection() {
 										// only sync ragdoll states that last more than 1 or 2 updates.
 										if (remote_player.GetIntVar("ragdoll_counter") > 7) {
 											PrintDebug("Ragdolling player\n");
-										
+
 											remote_player.Execute("Ragdoll("+remote_player_ragdoll_type+");");
 										}
 									} else if(old_state == _ragdoll_state) {
 										PrintDebug("UnRagdolling player\n");
-									
+
 										remote_player.Execute("ragdoll_counter = 0;");
 										remote_player.Execute("SetState(_movement_state);");
 										remote_player.Execute("ApplyIdle(5.0f,true);");
@@ -553,7 +550,6 @@ void HandleConnection() {
 						int player_ragdoll_type;
 						bool player_remove_blood;
 						bool player_cut_throat;
-						bool player_cut_torso;
 
 						for (int b = 0; b < second_level_size; b++) {
 							string name = first_level[a][b][0];
@@ -585,18 +581,16 @@ void HandleConnection() {
 								player_remove_blood = (value == "1");
 							} else if(name == "cut_throat") {
 								player_cut_throat = (value == "1");
-							} else if(name == "cut_torso") {
-								player_cut_torso = (value == "1");
 							}
 						}
 
 						//PrintDebug("Self update\n");
 						int player_id = GetPlayerCharacterID();
-						
+
 						if(player_id == -1) {
 							continue;
 						}
-						
+
 						MovementObject@ char = ReadCharacter(player_id);
 						char.Execute("blood_damage = "+player_blood_damage+";");
 						char.Execute("blood_health = "+player_blood_health+";");
@@ -609,7 +603,6 @@ void HandleConnection() {
 						char.Execute("recovery_time = "+player_recovery_time+";");
 						char.Execute("roll_recovery_time = "+player_roll_recovery_time+";");
 						char.Execute("cut_throat = "+player_cut_throat+";");
-						char.Execute("cut_torso = "+player_cut_torso+";");
 
 						if(player_remove_blood) {
 							char.Execute("this_mo.rigged_object().CleanBlood();");
@@ -685,7 +678,7 @@ void HandleChat() {
 
 	while(chat_callback != "") {
 		PrintDebug("chat callback:" + chat_callback + "\n");
-	
+
 		if(chat_callback == '!unfocus') {
 			has_chat_gui = false;
 			break;
@@ -742,9 +735,9 @@ void DrawUsernames() {
 			text.SetPenColor(255,255,255,255);
 			text.SetPenRotation(0.0f);
 			TextMetrics metrics;
-			text.GetTextMetrics(new_string, small_style, metrics);
+			text.GetTextMetrics(new_string, small_style, metrics, UINT32MAX);
 			text.SetPenPosition(vec2(128-metrics.advance_x/64.0f*0.5f, 210));
-			text.AddText(new_string, small_style);
+			text.AddText(new_string, small_style, UINT32MAX);
 			text.UploadTextCanvasToTexture();
 			assigned.text = new_string;
 		}
@@ -787,7 +780,6 @@ void SendUpdate() {
 			"&ragdoll_type=" + char.GetIntVar("ragdoll_type") +
 			"&blood_delay=" + char.GetIntVar("blood_delay") +
 			"&cut_throat=" + char.GetBoolVar("cut_throat") +
-			"&cut_torso=" + char.GetBoolVar("cut_torso") +
 			"&state=" + char.GetIntVar("state");
 
 			char.Execute("MPWantsToRoll = false;");

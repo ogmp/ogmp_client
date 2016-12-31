@@ -1,6 +1,6 @@
 #include "ui_effects.as"
 #include "threatcheck.as"
-#include "ogmp_challengelevel.as"
+#include "music_load.as"
 
 bool reset_allowed = true;
 float time = 0.0f;
@@ -9,6 +9,8 @@ string level_name;
 int in_victory_trigger = 0;
 const float _reset_delay = 4.0f;
 float reset_timer = _reset_delay;
+
+MusicLoad ml("Data/Music/challengelevel.xml");
 
 void Init(string p_level_name) {
     challenge_end_gui.Init();
@@ -221,11 +223,6 @@ class ChallengeEndGUI {
     }
 
     void Update(){
-        if(IsMultiplayer()){
-            target_visible = 0.0f;
-            return;
-        }
-
         visible = UpdateVisible(visible, target_visible);
         if(gui_id != -1){
             gui.MoveTo(gui_id,GetScreenWidth()/2-400,GetScreenHeight()/2-300);
@@ -353,7 +350,7 @@ class ChallengeEndGUI {
                     int num = GetNumCharacters();
                     for(int j=0; j<num; ++j){
                         MovementObject@ char = ReadCharacter(j);
-                        if(!player_char.OnSameTeam(char) && !char.GetBoolVar("ignore_death")){
+                        if(!player_char.OnSameTeam(char)){
                             int knocked_out = char.GetIntVar("knocked_out");
                             if(knocked_out == 1 && char.GetFloatVar("blood_health") <= 0.0f){
                                 knocked_out = 2;
@@ -466,7 +463,7 @@ ChallengeEndGUI challenge_end_gui;
 
 
 void Update() {
-    const bool display_achievements = false;
+    bool display_achievements = false;
     if(display_achievements && GetPlayerCharacterID() != -1){
         achievements.UpdateDebugText();
     }
@@ -509,7 +506,7 @@ void VictoryCheckNormal() {
         return;
     }
     bool victory = true;
-    const bool display_victory_conditions = false;
+    bool display_victory_conditions = false;
 
     float max_reset_delay = _reset_delay;
     for(int i=0; i<level.GetNumObjectives(); ++i){

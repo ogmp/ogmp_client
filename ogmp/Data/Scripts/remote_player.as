@@ -3,14 +3,13 @@
 
 float grab_key_time;
 bool listening = false;
+bool delay_jump;
 
 Situation situation;
 
 int IsUnaware() {
     return 0;
 }
-
-void NotifySound(int created_by_id, float max_dist, vec3 pos) {}
 
 enum DropKeyState {_dks_nothing, _dks_pick_up, _dks_drop, _dks_throw};
 DropKeyState drop_key_state = _dks_nothing;
@@ -27,8 +26,18 @@ string GetIdleOverride(){
 
 float last_noticed_time;
 
+void DrawStealthDebug() {
+}
+
+bool DeflectWeapon() {
+    return active_blocking;
+}
+
+int IsAggro() {
+    return 1;
+}
+
 void UpdateBrain(const Timestep &in ts){
-	//Print("State: " + state + "\n");
     startled = false;
     if(MPWantsToGrab){
         grab_key_time += ts.step();
@@ -58,7 +67,8 @@ void UpdateBrain(const Timestep &in ts){
             if(MPWantsToCrouch &&
                duck_amount > 0.5f &&
                on_ground &&
-               !flip_info.IsFlipping())
+               !flip_info.IsFlipping() &&
+               GetThrowTarget() == -1)
             {
                 drop_key_state = _dks_drop;
             } else {
@@ -76,6 +86,14 @@ void UpdateBrain(const Timestep &in ts){
             item_key_state = _iks_sheathe;
         }
     }
+
+    if(delay_jump && !GetInputDown(this_mo.controller_id, "jump")){
+        delay_jump = false;
+    }
+}
+
+void AIEndAttack(){
+
 }
 
 vec3 GetTargetJumpVelocity() {
@@ -99,6 +117,9 @@ int IsIdle() {
 }
 
 void HandleAIEvent(AIEvent event){
+    if(event == _climbed_up){
+        delay_jump = true;
+    }
 }
 
 void MindReceiveMessage(string msg){
@@ -124,6 +145,27 @@ bool WantsToRollFromRagdoll(){
     return MPWantsToRoll;
 }
 
+bool ActiveDodging(int attacker_id) {
+    bool knife_attack = false;
+    MovementObject@ char = ReadCharacterID(attacker_id);
+    int enemy_primary_weapon_id = GetCharPrimaryWeapon(char);
+    if(enemy_primary_weapon_id != -1){
+        ItemObject@ weap = ReadItemID(enemy_primary_weapon_id);
+        if(weap.GetLabel() == "knife"){
+            knife_attack = true;
+        }
+    }
+    if(attack_getter2.GetFleshUnblockable() == 1 && knife_attack){
+        return active_dodge_time > time - 0.4f; // Player gets bonus to dodge vs knife attacks
+    } else {
+        return active_dodge_time > time - 0.2f;
+    }
+}
+
+bool ActiveBlocking() {
+    return MPActiveBlock;
+}
+
 bool WantsToFlip() {
     return MPWantsToRoll;
 }
@@ -136,12 +178,16 @@ bool WantsToThrowEnemy() {
     return grab_key_time > 0.2f;
 }
 
+void Startle() {
+
+}
+
 bool WantsToDragBody() {
     return MPWantsToGrab;
 }
 
 bool WantsToPickUpItem() {
-    return drop_key_state == _dks_pick_up;
+    return MPWantsToGrab;
 }
 
 bool WantsToDropItem() {
@@ -150,6 +196,10 @@ bool WantsToDropItem() {
 
 bool WantsToThrowItem() {
     return drop_key_state == _dks_throw;
+}
+
+bool WantsToThroatCut() {
+    return MPWantsToAttack;
 }
 
 bool WantsToSheatheItem() {
@@ -221,25 +271,33 @@ bool WantsToCancelAnimation() {
 // Converts the keyboard controls into a target velocity that is used for movement calculations in aschar.as and aircontrol.as.
 vec3 GetTargetVelocity() {
     vec3 target_velocity = vec3(dir_x, 0.0f, dir_z);
+    
+    if(length_squared(target_velocity)>1){
+        target_velocity = normalize(target_velocity);
+    }
+
+    if(trying_to_get_weapon > 0){
+        target_velocity = get_weapon_dir;
+    }
 
     return target_velocity;
 }
 
 // Called from aschar.as, bool front tells if the character is standing still. Only characters that are standing still may perform a front kick.
-void ChooseAttack(bool front) {
-    curr_attack = "";
+void ChooseAttack(bool front, string& out attack_str) {
+    attack_str = "";
     if(on_ground){
         if(!WantsToCrouch()){
             if(front){
-                curr_attack = "stationary";
+                attack_str = "stationary";
             } else {
-                curr_attack = "moving";
+                attack_str = "moving";
             }
         } else {
-            curr_attack = "low";
+            attack_str = "low";
         }
     } else {
-        curr_attack = "air";
+        attack_str = "air";
     }
 }
 
@@ -257,4 +315,21 @@ int CombatSong() {
 
 int IsAggressive() {
     return 0;
+}
+
+int GetLeftFootPlanted(){
+    if(foot[0].progress == 1.0f){
+        return 1;
+    }else{
+        return 0;
+    }
+}
+
+int GetRightFootPlanted(){
+    Print("progress " + foot[1].progress + "\n");
+    if(foot[1].progress >= 1.0f){
+        return 1;
+    }else{
+        return 0;
+    }
 }
