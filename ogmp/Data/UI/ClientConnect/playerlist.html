@@ -41,6 +41,7 @@
    </div>
    <script type="text/javascript" language="javascript">
 	var server_address;
+	var server_port;
 
 	function try_injecting() {
 		if (!server_address) {	
@@ -48,7 +49,7 @@
 			return;
 		}
 
-		var iframe = $('<iframe id="user-list" />').attr('src', 'http://' + server_address + '/users.html').appendTo('#holderholder')
+		var iframe = $('<iframe id="user-list" />').attr('src', 'http://' + server_address + ':' + server_port + '/users.html').appendTo('#holderholder')
 
 		iframe.load(function() {
 			iframe.show();

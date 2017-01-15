@@ -13,6 +13,7 @@ string welcome_message;
 string username;
 string level_name;
 string server_address;
+string server_port;
 bool connected_to_server = false;
 float frequency = 1.0f;
 float delay = 1.0f;
@@ -66,16 +67,17 @@ void CheckKeys() {
 			gui.Execute(chat_id,"toggleChat();");
 		}
 
-		if(GetInputDown(controller_id, "f11")) {
+		if(GetInputDown(controller_id, "f10")) {
 			if(!showing_playerlist) {
 				playerlist_id = gui.AddGUI("gamemenu","ClientConnect\\playerlist.html",GetScreenWidth()/2,GetScreenHeight()/2,0);
 				gui.Execute(playerlist_id,"server_address = \""+server_address+"\"");
+				gui.Execute(playerlist_id,"server_port = \""+server_port+"\"");
 
 				showing_playerlist = true;
 			}
 		}
 
-		if(showing_playerlist && !GetInputDown(controller_id, "f11")) {
+		if(showing_playerlist && !GetInputDown(controller_id, "f10")) {
 			gui.RemoveGUI(playerlist_id);
 			showing_playerlist = false;
 		}
@@ -108,7 +110,7 @@ void HandleConnection() {
 
 		//PrintDebug("Still here " + callback + "\n");
 		while(callback != "") {
-			//PrintDebug("client_connect callback: " + callback + "\n");
+			PrintDebug("client_connect callback: " + callback + "\n");
 
 			//If there is a callback the gui should be closed.
 			if(has_client_connect_gui) {
@@ -171,6 +173,10 @@ void HandleConnection() {
 								character_dir = first_level[a][b][1];
 							} else if(first_level[a][b][0] == "server") {
 								server_address = first_level[a][b][1];
+								DebugText("ok", "Address " + server_address, _persistent);
+							} else if(first_level[a][b][0] == "port") {
+								server_port = first_level[a][b][1];
+								DebugText("po", "Port " + server_port, _persistent);
 							}
 						}
 

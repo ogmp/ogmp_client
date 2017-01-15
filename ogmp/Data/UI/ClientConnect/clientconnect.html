@@ -41,6 +41,7 @@
   	var version = '0.0.5';
 	var username = '';
 	var server_address = '';
+	var server_port = '';
 	var level = '';
 	var posx = 0;
 	var posy = 0;
@@ -60,7 +61,7 @@
     //console.log("Send: " + message);
 		$.ajax({
 			type: "POST",
-			url : "http://" + server_address,
+			url : "http://" + server_address + ":" + server_port,
 			data : message,
 			crossDomain: true,
 			success: function(data, textStatus, jqXHR)
@@ -158,9 +159,16 @@
 		if (errFlag) {
 			return;
 		}
-
+		
 		username = args[0];
 		server_address = args[1];
+		if(server_address.indexOf(':') !== -1){
+			var split_address = server_address.split(':');
+			server_address = split_address[0];
+			server_port = split_address[1];
+			}else{
+			server_port = '80';
+		}
 		character = args[2];
 		console.log(args[0]);
 
@@ -170,6 +178,7 @@
 			level: level,
 			character: character,
 			server: server_address,
+			port: server_port,
 			version: version,
 			posx: posx,
 			posy: posy,
@@ -178,7 +187,7 @@
 
 		$.ajax({
 			type: "POST",
-			url : "http://" + server_address,
+			url : "http://" + server_address + ":" + server_port,
 			data : message,
 			crossDomain: true,
 			error: function (jqXHR, textStatus, errorThrown) {
@@ -198,6 +207,7 @@
 					$('.errormsg:eq(2)').text("No response from server.");
 					errFlag = true;
 				}else{
+					data += "&port=" + server_port;
 					console.log(data);
 					Client.GenericCallback(data);
 				}
