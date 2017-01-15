@@ -110,7 +110,7 @@ void HandleConnection() {
 
 		//PrintDebug("Still here " + callback + "\n");
 		while(callback != "") {
-			PrintDebug("client_connect callback: " + callback + "\n");
+			//PrintDebug("client_connect callback: " + callback + "\n");
 
 			//If there is a callback the gui should be closed.
 			if(has_client_connect_gui) {
