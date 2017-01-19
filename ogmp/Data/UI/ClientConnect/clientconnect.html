@@ -128,74 +128,77 @@
     center:true,
   }];
 
-  var server_list_address = 'https://raw.githubusercontent.com/ogmp/resources/master/server_list.txt';
+  function GetPublicServers(){
+    var server_list_address = 'https://raw.githubusercontent.com/ogmp/resources/master/server_list.txt';
 
-  $.ajax({
-    type: "GET",
-    async: false,
-    timeout: 5000,
-    url : server_list_address,
-    success: function(data, textStatus, jqXHR)
-    {
-      $.each(data.split(/[\n\r]+/), function(index, line) {
-          if(line == ''){
-            return;
-          }
-          var split_data = line.split(":");
-          var address = split_data[0];
-          var port = split_data[1];
-          var date = new Date();
+    $.ajax({
+      type: "GET",
+      async: true,
+      timeout: 5000,
+      url : server_list_address,
+      success: function(data, textStatus, jqXHR)
+      {
+        $.each(data.split(/[\n\r]+/), function(index, line) {
+            if(line == ''){
+              return;
+            }
+            var split_data = line.split(":");
+            var address = split_data[0];
+            var port = split_data[1];
+            var date = new Date();
 
 
-          console.log("preparing http://" + address + ":" + port);
-          $.ajax({
-              type: "GET",
-              timeout: 50,
-              async: true,
-              url : "http://" + address + ":" + port,
-              error: function (jqXHR, textStatus, errorThrown)
-              {
-                console.log(errorThrown);
-                online = false;
-                console.log("http://" + address + ":" + port + " not online");
-              },
-              success: function()
-              {
-                var latency = (+new Date()) - date;
-                var div = document.createElement("div");
-                var element = document.createElement("input");
-                element.type = 'submit';
-                element.className = 'outer';
+            console.log("preparing http://" + address + ":" + port);
+            $.ajax({
+                type: "GET",
+                timeout: 1000,
+                async: true,
+                url : "http://" + address + ":" + port,
+                error: function (jqXHR, textStatus, errorThrown)
+                {
+                  console.log(errorThrown);
+                  online = false;
+                  console.log("http://" + address + ":" + port + " not online");
+                },
+                success: function()
+                {
+                  var latency = (+new Date()) - date;
+                  var div = document.createElement("div");
+                  var element = document.createElement("input");
+                  element.type = 'submit';
+                  element.className = 'outer';
 
-                element.value = 'Join   ' + address + ":" + port + "    " + "latency:" + latency + "ms";
-                element.style.width = '100%';
-                element.style.height = '40px';
-                element.onclick = function() {
-                  character = items[2].getter();
-                  username = items[0].getter();
-                  var err = items[0].validate && items[0].validate(username);
+                  element.value = 'Join   ' + address + ":" + port + "    " + "latency:" + latency + "ms";
+                  element.style.width = '100%';
+                  element.style.height = '40px';
+                  element.onclick = function() {
+                    character = items[2].getter();
+                    username = items[0].getter();
+                    var err = items[0].validate && items[0].validate(username);
 
-                  if (err) {
-                    $('.item:eq('+(0)+')').addClass('error');
-                    $('.errormsg:eq('+(0)+')').text(err);
-                    return;
-                  }
-                  server_port = port;
-                  server_address = address;
-                  console.log("connect to " + "http://" + server_address + ":" + server_port);
-                  Connect(username, server_address, server_port, character);
-                };
-                div.appendChild(element);
-                $('.item:eq('+(0)+')').parent().append(div);
-              }
-          });
-      });
-    },
-    error: function (jqXHR, textStatus, errorThrown)
-    {
-      console.log("Error" + errorThrown);
-    }
-  });
+                    if (err) {
+                      $('.item:eq('+(0)+')').addClass('error');
+                      $('.errormsg:eq('+(0)+')').text(err);
+                      return;
+                    }
+                    server_port = port;
+                    server_address = address;
+                    console.log("connect to " + "http://" + server_address + ":" + server_port);
+                    Connect(username, server_address, server_port, character);
+                  };
+                  div.appendChild(element);
+                  $('.item:eq('+(0)+')').parent().append(div);
+                }
+            });
+        });
+      },
+      error: function (jqXHR, textStatus, errorThrown)
+      {
+        console.log("Error" + errorThrown);
+      }
+    });
+  }
+
   console.log(" building gui");
   inspector.init({
     items:items,

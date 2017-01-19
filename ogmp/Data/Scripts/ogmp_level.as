@@ -45,6 +45,7 @@ void CheckKeys() {
 
 		// Now we can create the html document. This is the object that will actually connect to the server.
 		client_connect_id = gui.AddGUI("gamemenu", "ClientConnect\\clientconnect.html", int(GetScreenWidth()/1.5f), 500, 0);
+		gui.Execute(client_connect_id, "GetPublicServers();");
 		has_client_connect_gui = true;
 		gui.Execute(client_connect_id,"level = \""+level_name+"\";");
 
