@@ -173,10 +173,8 @@ void HandleConnection() {
 								character_dir = first_level[a][b][1];
 							} else if(first_level[a][b][0] == "server") {
 								server_address = first_level[a][b][1];
-								DebugText("ok", "Address " + server_address, _persistent);
 							} else if(first_level[a][b][0] == "port") {
 								server_port = first_level[a][b][1];
-								DebugText("po", "Port " + server_port, _persistent);
 							}
 						}
 
@@ -683,7 +681,7 @@ void HandleChat() {
 	string chat_callback = gui.GetCallback(chat_id);
 
 	while(chat_callback != "") {
-		PrintDebug("chat callback:" + chat_callback + "\n");
+		//PrintDebug("chat callback:" + chat_callback + "\n");
 
 		if(chat_callback == '!unfocus') {
 			has_chat_gui = false;

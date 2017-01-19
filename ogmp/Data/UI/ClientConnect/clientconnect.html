@@ -60,6 +60,7 @@
 
 	function sendUpdate(message) {
     //console.log("Send: " + message);
+    //console.log("http://" + server_address + ":" + server_port);
 		$.ajax({
 			type: "POST",
 			url : "http://" + server_address + ":" + server_port,
@@ -179,7 +180,10 @@
                     $('.errormsg:eq('+(0)+')').text(err);
                     return;
                   }
-                  Connect(username, address + port, character);
+                  server_port = port;
+                  server_address = address;
+                  console.log("connect to " + "http://" + server_address + ":" + server_port);
+                  Connect(username, server_address, server_port, character);
                 };
                 div.appendChild(element);
                 $('.item:eq('+(0)+')').parent().append(div);
@@ -234,7 +238,7 @@
 		if (errFlag) {
 			return;
 		}
-		
+
 		username = args[0];
 		server_address = args[1];
 		if(server_address.indexOf(':') !== -1){
@@ -245,10 +249,10 @@
 			server_port = '80';
 		}
 		character = args[2];
-    Connect(username, server_address, character);
+    Connect(username, server_address, server_port, character);
 	});
 
-  function Connect(username, server_address, character){
+  function Connect(username, server_address, server_port, character){
     var message = {
 			type: "SignOn",
 			username: username,
