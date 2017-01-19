@@ -196,7 +196,7 @@ void HandleConnection() {
 						if(chat_id <= 0) {
 							chat_id = gui.AddGUI("gamemenu","ClientConnect\\chat.html",400,400,0);
 
-							gui.MoveTo(chat_id,GetScreenWidth()-400,GetScreenHeight()-400);
+							gui.MoveTo(chat_id,0,GetScreenHeight()-400);
 						}
 
 						gui.Execute(chat_id,"addChat('System', 'Successfully connected to server.',true)");
