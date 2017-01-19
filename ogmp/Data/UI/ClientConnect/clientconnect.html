@@ -45,6 +45,7 @@
 	var posx = 0;
 	var posy = 0;
 	var posz = 0;
+  var nr_public_servers;
 
 	function closeWindow() {
 		Client.GenericCallback("closeWindow");
@@ -117,12 +118,84 @@
 		{name:'Wolf',value:'wolf'},
 		{name:'Turner',value:'turner'}],
 		type:'select',
-	}];
+	}, {
+    type:'hr',
+  }, {
+    type:'subtext',
+    content:'Public servers',
+    center:true,
+  }];
 
-	inspector.init({
-		items:items,
-		holder:$('#holder'),
-	});
+  var server_list_address = 'https://raw.githubusercontent.com/ogmp/resources/master/server_list.txt';
+
+  $.ajax({
+    type: "GET",
+    async: false,
+    timeout: 5000,
+    url : server_list_address,
+    success: function(data, textStatus, jqXHR)
+    {
+      $.each(data.split(/[\n\r]+/), function(index, line) {
+          if(line == ''){
+            return;
+          }
+          var split_data = line.split(":");
+          var address = split_data[0];
+          var port = split_data[1];
+          var date = new Date();
+
+
+          console.log("preparing http://" + address + ":" + port);
+          $.ajax({
+              type: "GET",
+              timeout: 50,
+              async: true,
+              url : "http://" + address + ":" + port,
+              error: function (jqXHR, textStatus, errorThrown)
+              {
+                console.log(errorThrown);
+                online = false;
+                console.log("http://" + address + ":" + port + " not online");
+              },
+              success: function()
+              {
+                var latency = (+new Date()) - date;
+                var div = document.createElement("div");
+                var element = document.createElement("input");
+                element.type = 'submit';
+                element.className = 'outer';
+
+                element.value = 'Join   ' + address + ":" + port + "    " + "latency:" + latency + "ms";
+                element.style.width = '100%';
+                element.style.height = '40px';
+                element.onclick = function() {
+                  character = items[2].getter();
+                  username = items[0].getter();
+                  var err = items[0].validate && items[0].validate(username);
+
+                  if (err) {
+                    $('.item:eq('+(0)+')').addClass('error');
+                    $('.errormsg:eq('+(0)+')').text(err);
+                    return;
+                  }
+                  Connect(username, address + port, character);
+                };
+                div.appendChild(element);
+                $('.item:eq('+(0)+')').parent().append(div);
+              }
+          });
+      });
+    },
+    error: function (jqXHR, textStatus, errorThrown)
+    {
+      console.log("Error" + errorThrown);
+    }
+  });
+  console.log(" building gui");
+  inspector.init({
+    items:items,
+    holder:$('#holder'),
+  });
 
 	$('#holder').live('keydown', function(e) {
 		var $this = $(this);
@@ -142,17 +215,19 @@
 		$('.item').removeClass('error');
 
 		$.each(items,function(b,a) {
-			var val = a.getter();
-			var err = a.validate && a.validate(val);
+      if(a.type == 'select' || a.type == 'editfield'){
+        var val = a.getter();
+        var err = a.validate && a.validate(val);
 
-			if (err) {
-				$('.item:eq('+(b)+')').addClass('error');
-				$('.errormsg:eq('+(b)+')').text(err);
-				errFlag = true;
-				return;
-			}
+        if (err) {
+          $('.item:eq('+(b)+')').addClass('error');
+          $('.errormsg:eq('+(b)+')').text(err);
+          errFlag = true;
+          return;
+        }
 
-			args.push(a.getter());
+        args.push(a.getter());
+      }
 		});
 
 		if (errFlag) {
@@ -162,9 +237,11 @@
 		username = args[0];
 		server_address = args[1];
 		character = args[2];
-		console.log(args[0]);
+    Connect(username, server_address, character);
+	});
 
-		var message = {
+  function Connect(username, server_address, character){
+    var message = {
 			type: "SignOn",
 			username: username,
 			level: level,
@@ -203,7 +280,7 @@
 				}
 			}
 		});
-	});
+  };
 
 	Client.Loaded();
   </script>
