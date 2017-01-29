@@ -22,6 +22,9 @@ bool connected_to_server = false;
 bool post_init_run = false;
 bool trying_to_connect = false;
 
+float update_timer = 0.0f;
+float interval = 1.0f;
+
 void Init(string p_level_name) {
     level_name = p_level_name;
     player_id = GetPlayerCharacterID();
@@ -29,9 +32,14 @@ void Init(string p_level_name) {
 
 void IncomingTCPData(uint socket, array<uint8>@ data) {
     Log(info, "Data in" );
+    //string s(data, data + data.length());
+    array<string> complete;
     for( uint i = 0; i < data.length(); i++ ) {
-        Log(info, "d[i]:" + data[i]);
+        string s('0');
+        s[0] = data[i];
+        complete.insertLast(s);
     }
+    Log(info, "Data: " + join(complete, ""));
 }
 
 void ReceiveMessage(string msg) {
@@ -77,7 +85,6 @@ void ConnectToServer(){
                     if( socket != SOCKET_ID_INVALID ) {
                         Log( info, "Connected " + socket );
                         connected_to_server = true;
-                        SendData("Max, I think it's working!");
                     } else {
                         Log( warning, "Unable to connect, will try again soon" );
                         connect_try_countdown = 60*5;
@@ -90,7 +97,15 @@ void ConnectToServer(){
     }
 }
 
-void SendPlayerUpdate(){}
+void SendPlayerUpdate(){
+    array<string> messages = {"This is the first message", "and another one", "bloop", "soooo", "hmm yeah"};
+    if(update_timer > interval){
+        Log(info, "Send update");
+        update_timer = 0;
+        SendData(messages[rand()%messages.size()]);
+    }
+    update_timer += time_step;
+}
 
 void ReceiveServerUpdate(){}
 
