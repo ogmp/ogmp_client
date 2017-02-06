@@ -3,6 +3,8 @@ uint connect_try_countdown = 5;
 string level_name = "";
 int player_id = -1;
 
+string username = "";
+
 int ragdoll_counter = 0;
 float dir_x = 0.0f;
 float dir_z = 0.0f;
@@ -51,14 +53,18 @@ string RemoveCharacter = "RemoveCharacter";
 string UpdateSelf = "UpdateSelf";
 string LoadPosition = "LoadPosition";
 
+bool TCPReceived = false;
+
 void Init(string p_level_name) {
     level_name = p_level_name;
     player_id = GetPlayerCharacterID();
 }
 
 void IncomingTCPData(uint socket, array<uint8>@ data) {
-    Log(info, "Data in" );
-    //string s(data, data + data.length());
+	if(TCPReceived){
+		TCPReceived = false;
+		return;
+	}
     array<string> complete;
     for( uint i = 0; i < data.length(); i++ ) {
         string s('0');
@@ -66,10 +72,46 @@ void IncomingTCPData(uint socket, array<uint8>@ data) {
         complete.insertLast(s);
     }
     Log(info, "Data: " + join(complete, ""));
+	/*
+	Log(info, "Data in" );
+    for( uint i = 0; i < data.length(); i++ ) {
+        Print(data[i] + "");
+    }
+	Print("\n");
+	*/
+	TCPReceived = true;
+	ProcessIncomingMessage(join(complete, ""));
 }
 
 void ProcessIncomingMessage(string message){
+	JSON incoming_message;
+	if( !incoming_message.parseString( message ) ) {
+        //DisplayError("Incomming Message Error", "Unable to parse incoming information");
+	}
+	//Print(incoming_message.writeString(false) + "\n");
+	string message_type = incoming_message.getRoot()["type"].asString();
+	JSONValue message_content = incoming_message.getRoot()["content"];
+	if(message_type == "SignOn"){
+		Print("Found signon message!\n");
+	}
+	else if(message_type == "Message"){
 
+	}
+	else if (message_type == "SpawnCharacter"){
+
+	}
+	else if (message_type == "RemoveCharacter"){
+
+	}
+	else if (message_type == "Update"){
+
+	}
+	else if (message_type == "UpdateSelf"){
+
+	}
+	else{
+		//DisplayError("Unknown Message", "Unknown incomming message: " + message_type);
+	}
 }
 
 void ReceiveMessage(string msg) {
@@ -109,38 +151,39 @@ void PreConnectedKeyChecks(){
         trying_to_connect = true;
     }
 	else if(GetInputPressed(ReadCharacter(player_id).controller_id, "f5")){
-
+		string message = "{\"Update\":{\"activeblock\":false,\"attack\":false,\"block_health\":1,\"blood_amount\":10}}";
+		ProcessIncomingMessage(message);
 	}
 }
 
 void KeyChecks(){
-	if(GetInputPressed(ReadCharacter(player_id).controller_id, "return")) {
+	int controller_id = ReadCharacter(player_id).controller_id;
+
+	if(GetInputPressed(controller_id, "return")) {
 		//TODO closing and opening chat.
 	}
-	else if(GetInputDown(ReadCharacter(player_id).controller_id, "f10")) {
+	else if(GetInputDown(controller_id, "f10")) {
 		if(!showing_playerlist) {
 			//TODO show player list while f10 is being pressed
 			showing_playerlist = true;
 		}
 	}
-	else if(showing_playerlist && !GetInputDown(ReadCharacter(player_id).controller_id, "f10")) {
+	else if(showing_playerlist && !GetInputDown(controller_id, "f10")) {
 		//TODO don't show playerlist anymore.
 		showing_playerlist = false;
 	}
-	else if(GetInputPressed(ReadCharacter(player_id).controller_id, "k")) {
-		MovementObject@ char = ReadCharacter(0);
-		if((char.GetFloatVar("permanent_health") > 0) && (char.GetFloatVar("temp_health") > 0)) {
-			//string message = "type=SavePosition" + "&uid=" + client_uid;
+	else if(GetInputPressed(controller_id, "f12")) {
+		DisconnectFromServer();
+	}
+	else if(GetInputPressed(controller_id, "k")) {
+		if((permanent_health > 0) && (temp_health > 0)) {
+			SendSavePosition();
 		}
 	}
-	else if(GetInputPressed(ReadCharacter(player_id).controller_id, "l")) {
-		MovementObject@ char = ReadCharacter(0);
-		if((char.GetFloatVar("permanent_health") > 0) && (char.GetFloatVar("temp_health") > 0)) {
-			//string message = "type=LoadPosition" + "&uid=" + client_uid;
+	else if(GetInputPressed(controller_id, "l")) {
+		if((permanent_health > 0) && (temp_health > 0)) {
+			SendLoadPosition();
 		}
-	}
-	else if(GetInputPressed(ReadCharacter(player_id).controller_id, "f12")) {
-		//TODO disconnect
 	}
 }
 
@@ -150,10 +193,11 @@ void ConnectToServer(){
             if( connect_try_countdown == 0 ) {
                 if( level_name != "") {
                     Log( info, "Trying to connect" );
-                    socket = CreateSocketTCP("127.0.0.1", 2000);
+					socket = CreateSocketTCP("127.0.0.1", 2000);
                     if( socket != SOCKET_ID_INVALID ) {
                         Log( info, "Connected " + socket );
                         connected_to_server = true;
+						trying_to_connect = false;
 						SendSignOn();
                     } else {
                         Log( warning, "Unable to connect, will try again soon" );
@@ -167,8 +211,38 @@ void ConnectToServer(){
     }
 }
 
+void DisconnectFromServer(){
+	Print("Destroying socket\n");
+	DestroySocketTCP(socket);
+	socket = SOCKET_ID_INVALID;
+	connected_to_server = false;
+}
+
+void SendChatMessage(string chat_message){
+	JSON message;
+	message.getRoot()["type"] = JSONValue("Message");
+	JSONValue message_type;
+	message_type["username"] = JSONValue("Gyrth");
+	message_type["text"] = JSONValue(chat_message);
+	message.getRoot()["content"] = message_type;
+	SendData(message.writeString(false));
+}
+
+void SendSavePosition(){
+	JSON message;
+	message.getRoot()["type"] = JSONValue("SavePosition");
+	SendData(message.writeString(false));
+}
+
+void SendLoadPosition(){
+	JSON message;
+	message.getRoot()["type"] = JSONValue("LoadPosition");
+	SendData(message.writeString(false));
+}
+
 void SendSignOn(){
 	JSON message;
+	message.getRoot()["type"] = JSONValue("SignOn");
 	JSONValue message_type;
 	message_type["username"] = JSONValue("Gyrth");
 	message_type["character"] = JSONValue("Turner");
@@ -177,9 +251,9 @@ void SendSignOn(){
 	message_type["posx"] = JSONValue(1.0f);
 	message_type["posy"] = JSONValue(2.0f);
 	message_type["posz"] = JSONValue(3.0f);
-	message.getRoot()["SignOn"] = message_type;
+	message.getRoot()["content"] = message_type;
 	SendData(message.writeString(false));
-	Print(message.writeString(false) + "\n");
+	//Print(message.writeString(false) + "\n");
 }
 
 void SendPlayerUpdate(){
@@ -187,6 +261,7 @@ void SendPlayerUpdate(){
 	JSONValue message_type;
 	MovementObject@ char = ReadCharacter(0);
 
+	message.getRoot()["type"] = JSONValue("Update");
 	message_type["posx"] = JSONValue(char.position.x);
 	message_type["posy"] = JSONValue(char.position.y);
 	message_type["posz"] = JSONValue(char.position.z);
@@ -223,9 +298,12 @@ void SendPlayerUpdate(){
 	char.Execute("MPWantsToJumpOffWall = false;");
 	char.Execute("MPActiveBlock = false;");
 
-	message.getRoot()["Update"] = message_type;
+	message.getRoot()["content"] = message_type;
 	SendData(message.writeString(false));
-	Print(message.writeString(false) + "\n");
+	//Print(message.writeString(false) + "\n");
+
+	//array<string> messages = {"This is the first message", "and another one", "bloop", "soooo", "hmm yeah"};
+	//SendData(messages[rand()%messages.size()]);
 }
 
 void ReceiveServerUpdate(){}
@@ -284,7 +362,10 @@ void SendData(string message){
     }
     else
     {
+		Log(info, "Socket no longer valid");
         socket = SOCKET_ID_INVALID;
+		connected_to_server = false;
+		trying_to_connect = false;
     }
 }
 
