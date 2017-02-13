@@ -4,6 +4,9 @@ string level_name = "";
 int player_id = -1;
 
 string username = "";
+string team = "";
+string welcome_message = "";
+string character = "";
 
 int ragdoll_counter = 0;
 float dir_x = 0.0f;
@@ -42,6 +45,7 @@ bool showing_playerlist = false;
 
 float update_timer = 0.0f;
 float interval = 1.0f;
+int refresh_rate = 30;
 
 //Possible incomming messages
 string Message = "Message";
@@ -61,10 +65,6 @@ void Init(string p_level_name) {
 }
 
 void IncomingTCPData(uint socket, array<uint8>@ data) {
-	if(TCPReceived){
-		TCPReceived = false;
-		return;
-	}
     array<string> complete;
     for( uint i = 0; i < data.length(); i++ ) {
         string s('0');
@@ -79,7 +79,6 @@ void IncomingTCPData(uint socket, array<uint8>@ data) {
     }
 	Print("\n");
 	*/
-	TCPReceived = true;
 	ProcessIncomingMessage(join(complete, ""));
 }
 
@@ -93,6 +92,12 @@ void ProcessIncomingMessage(string message){
 	JSONValue message_content = incoming_message.getRoot()["content"];
 	if(message_type == "SignOn"){
 		Print("Found signon message!\n");
+		refresh_rate = atoi(message_content["refresh_rate"].asString());
+		username = message_content["username"].asString();
+		welcome_message = message_content["welcome_message"].asString();
+		team = message_content["team"].asString();
+		character = message_content["character"].asString();
+		connected_to_server = true;
 	}
 	else if(message_type == "Message"){
 
@@ -118,6 +123,10 @@ void ReceiveMessage(string msg) {
 }
 
 void DrawGUI() {
+}
+
+void Update() {
+	Update(0);
 }
 
 void Update(int paused) {
@@ -196,7 +205,6 @@ void ConnectToServer(){
 					socket = CreateSocketTCP("127.0.0.1", 2000);
                     if( socket != SOCKET_ID_INVALID ) {
                         Log( info, "Connected " + socket );
-                        connected_to_server = true;
 						trying_to_connect = false;
 						SendSignOn();
                     } else {
@@ -378,4 +386,7 @@ int GetPlayerCharacterID() {
         }
     }
     return -1;
+}
+bool HasFocus(){
+	return false;
 }
