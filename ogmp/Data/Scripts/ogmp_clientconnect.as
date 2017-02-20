@@ -71,7 +71,7 @@ void IncomingTCPData(uint socket, array<uint8>@ data) {
         s[0] = data[i];
         complete.insertLast(s);
     }
-    Log(info, "Data: " + join(complete, ""));
+    //Log(info, "Incoming: " + join(complete, ""));
 	/*
 	Log(info, "Data in" );
     for( uint i = 0; i < data.length(); i++ ) {
@@ -88,10 +88,11 @@ void ProcessIncomingMessage(string message){
         //DisplayError("Incomming Message Error", "Unable to parse incoming information");
 	}
 	//Print(incoming_message.writeString(false) + "\n");
+	Log(info, "Whole: " + incoming_message.writeString(false));
 	string message_type = incoming_message.getRoot()["type"].asString();
 	JSONValue message_content = incoming_message.getRoot()["content"];
 	if(message_type == "SignOn"){
-		Print("Found signon message!\n");
+		Log(info, "Incoming: " + "SignOn Command");
 		refresh_rate = atoi(message_content["refresh_rate"].asString());
 		username = message_content["username"].asString();
 		welcome_message = message_content["welcome_message"].asString();
@@ -100,19 +101,19 @@ void ProcessIncomingMessage(string message){
 		connected_to_server = true;
 	}
 	else if(message_type == "Message"){
-
+		Log(info, "Incoming: " + "Message Command");
 	}
 	else if (message_type == "SpawnCharacter"){
-
+		Log(info, "Incoming: " + "SpawnCharacter Command");
 	}
 	else if (message_type == "RemoveCharacter"){
-
+		Log(info, "Incoming: " + "RemoveCharacter Command");
 	}
 	else if (message_type == "Update"){
-
+		Log(info, "Incoming: " + "Update Command");
 	}
 	else if (message_type == "UpdateSelf"){
-
+		Log(info, "Incoming: " + "UpdateSelf Command");
 	}
 	else{
 		//DisplayError("Unknown Message", "Unknown incomming message: " + message_type);
@@ -252,7 +253,7 @@ void SendSignOn(){
 	JSON message;
 	message.getRoot()["type"] = JSONValue("SignOn");
 	JSONValue message_type;
-	message_type["username"] = JSONValue("Gyrth");
+	message_type["username"] = JSONValue("Gyrth" + rand() );
 	message_type["character"] = JSONValue("Turner");
 	message_type["level"] = JSONValue("red_shards.xml");
 	message_type["version"] = JSONValue("1.0.0");
@@ -273,10 +274,9 @@ void SendPlayerUpdate(){
 	message_type["posx"] = JSONValue(char.position.x);
 	message_type["posy"] = JSONValue(char.position.y);
 	message_type["posz"] = JSONValue(char.position.z);
-	/*
-	message_type["dirx"] = JSONValue(char.GetFloatVar("dir_x"));
-	message_type["dirz"] = JSONValue(char.GetFloatVar("dir_z"));
-	*/
+	//TODO corrent x and z
+	message_type["dirx"] = JSONValue(char.position.x);
+	message_type["dirz"] = JSONValue(char.position.z);
 	message_type["crouch"] = JSONValue(MPWantsToCrouch);
 	message_type["jump"] = JSONValue(MPWantsToJump);
 	message_type["attack"] = JSONValue(MPWantsToAttack);
