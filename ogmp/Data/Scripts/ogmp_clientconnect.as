@@ -47,15 +47,22 @@ float update_timer = 0.0f;
 float interval = 1.0f;
 int refresh_rate = 30;
 
-//Possible incomming messages
-string Message = "Message";
-string SignOn = "SignOn";
-string TimeOut = "TimeOut";
-string SpawnCharacter = "SpawnCharacter";
-string RemoveCharacter = "RemoveCharacter";
-//string Update = "Update";
-string UpdateSelf = "UpdateSelf";
-string LoadPosition = "LoadPosition";
+//Message types 
+uint8 SignOn = 0;
+uint8 Message = 1;
+uint8 TimeOut = 2;
+uint8 SpawnCharacter = 3;
+uint8 RemoveCharacter = 4;
+uint8 UpdateGame = 5;
+uint8 UpdateSelf = 6;
+uint8 SavePosition = 7;
+uint8 LoadPosition = 8;
+
+int username_size = 10;
+int character_size = 10;
+int level_size = 10;
+int version_size = 10;
+int float_size = 10;
 
 bool TCPReceived = false;
 
@@ -65,59 +72,66 @@ void Init(string p_level_name) {
 }
 
 void IncomingTCPData(uint socket, array<uint8>@ data) {
-    array<string> complete;
-    for( uint i = 0; i < data.length(); i++ ) {
-        string s('0');
-        s[0] = data[i];
-        complete.insertLast(s);
-    }
-    //Log(info, "Incoming: " + join(complete, ""));
-	/*
 	Log(info, "Data in" );
     for( uint i = 0; i < data.length(); i++ ) {
-        Print(data[i] + "");
+		if(data[i] == UpdateGame){
+			Print("UpdateGame!\n");
+		}
+        Print(data[i] + " ");
     }
 	Print("\n");
-	*/
-	ProcessIncomingMessage(join(complete, ""));
+	PrintByteArray(data);
+	ProcessIncomingMessage(data);
 }
 
-void ProcessIncomingMessage(string message){
-	JSON incoming_message;
-	if( !incoming_message.parseString( message ) ) {
-        //DisplayError("Incomming Message Error", "Unable to parse incoming information");
-	}
-	//Print(incoming_message.writeString(false) + "\n");
-	Log(info, "Whole: " + incoming_message.writeString(false));
-	string message_type = incoming_message.getRoot()["type"].asString();
-	JSONValue message_content = incoming_message.getRoot()["content"];
-	if(message_type == "SignOn"){
+void ProcessIncomingMessage(array<uint8>@ data){
+	uint8 message_type = data[0];
+	Log(info, "Message type : " + message_type);
+	int data_index = 1;
+	if(message_type == SignOn){
 		Log(info, "Incoming: " + "SignOn Command");
-		refresh_rate = atoi(message_content["refresh_rate"].asString());
+		Log(info, "index: " + data_index);
+		float refresh_rate = GetFloat(data, data_index);
+		Log(info, "index: " + data_index);
+		Log(info, "Refreshrate: " + refresh_rate);
+		
+		/*refresh_rate = atoi(message_content["refresh_rate"].asString());
 		username = message_content["username"].asString();
 		welcome_message = message_content["welcome_message"].asString();
 		team = message_content["team"].asString();
 		character = message_content["character"].asString();
-		connected_to_server = true;
+		connected_to_server = true;*/
 	}
-	else if(message_type == "Message"){
+	else if(message_type == Message){
 		Log(info, "Incoming: " + "Message Command");
 	}
-	else if (message_type == "SpawnCharacter"){
+	else if (message_type == SpawnCharacter){
 		Log(info, "Incoming: " + "SpawnCharacter Command");
 	}
-	else if (message_type == "RemoveCharacter"){
+	else if (message_type == RemoveCharacter){
 		Log(info, "Incoming: " + "RemoveCharacter Command");
 	}
-	else if (message_type == "Update"){
+	else if (message_type == UpdateGame){
 		Log(info, "Incoming: " + "Update Command");
 	}
-	else if (message_type == "UpdateSelf"){
+	else if (message_type == UpdateSelf){
 		Log(info, "Incoming: " + "UpdateSelf Command");
 	}
 	else{
 		//DisplayError("Unknown Message", "Unknown incomming message: " + message_type);
 	}
+}
+
+void PrintByteArray(array<uint8> data){
+	array<string> complete;
+    for( uint i = 0; i < data.length(); i++ ) {
+        string s('0');
+        s[0] = data[i];
+        complete.insertLast(s);
+		Print(s);
+    }
+	Print("\n");
+    /*Log(info, "Incoming: " + join(complete, ""));*/
 }
 
 void ReceiveMessage(string msg) {
@@ -161,8 +175,7 @@ void PreConnectedKeyChecks(){
         trying_to_connect = true;
     }
 	else if(GetInputPressed(ReadCharacter(player_id).controller_id, "f5")){
-		string message = "{\"Update\":{\"activeblock\":false,\"attack\":false,\"block_health\":1,\"blood_amount\":10}}";
-		ProcessIncomingMessage(message);
+		
 	}
 }
 
@@ -234,36 +247,107 @@ void SendChatMessage(string chat_message){
 	message_type["username"] = JSONValue("Gyrth");
 	message_type["text"] = JSONValue(chat_message);
 	message.getRoot()["content"] = message_type;
-	SendData(message.writeString(false));
+	/*SendData(message.writeString(false));*/
 }
 
 void SendSavePosition(){
 	JSON message;
 	message.getRoot()["type"] = JSONValue("SavePosition");
-	SendData(message.writeString(false));
+	/*SendData(message.writeString(false));*/
 }
 
 void SendLoadPosition(){
 	JSON message;
 	message.getRoot()["type"] = JSONValue("LoadPosition");
-	SendData(message.writeString(false));
+	/*SendData(message.writeString(false));*/
 }
 
 void SendSignOn(){
-	JSON message;
-	message.getRoot()["type"] = JSONValue("SignOn");
-	JSONValue message_type;
-	message_type["username"] = JSONValue("Gyrth" + rand() );
-	message_type["character"] = JSONValue("Turner");
-	message_type["level"] = JSONValue("red_shards.xml");
-	message_type["version"] = JSONValue("1.0.0");
-	message_type["posx"] = JSONValue(1.0f);
-	message_type["posy"] = JSONValue(2.0f);
-	message_type["posz"] = JSONValue(3.0f);
-	message.getRoot()["content"] = message_type;
-	SendData(message.writeString(false));
+	array<uint8> message;
+	message.insertLast(SignOn);
+	MovementObject@ player = ReadCharacter(player_id);
+	vec3 position = player.position;
+	
+	addToByteArray("Gyrth", username_size, @message);
+	addToByteArray("Turner", character_size, @message);
+	addToByteArray("red_shards.xml", level_size, @message);
+	addToByteArray("1.0.0", version_size, @message);
+	addToByteArray(position.x, float_size, @message);
+	addToByteArray(position.y, float_size, @message);
+	addToByteArray(position.z, float_size, @message);
+	
+	
+	Print("Sending: \n");
+	for(uint i = 0; i < message.size(); i++){
+		Print("" + message[i]);
+	}
+	Print("\n");
+	Print("Send done.\n");
+	//message.insertLast('\n'[0]);
+	
+	SendData(message);
 	//Print(message.writeString(false) + "\n");
 }
+
+array<uint8> toByteArray(string message){
+	array<uint8> data;
+	for(uint i = 0; i < message.length(); i++){
+		data.insertLast(message.substr(i, 1)[0]);
+	}
+	/*data.insertLast('\n'[0]);*/
+	return data;
+}
+
+void addToByteArray(string message, uint message_length, array<uint8> @data){
+	for(uint i = 0; i < message_length; i++){
+		if(i >= message.length()){
+			data.insertLast(0);
+		}else{
+			data.insertLast(message.substr(i, 1)[0]);
+		}
+	}
+}
+
+void addToByteArray(float value, int message_length, array<uint8> @data){
+	/*Print("sending " + value + "\n");*/
+	array<uint8> bytes = toByteArray(value);
+	for(uint i = 0; i < bytes.size(); i++){
+		data.insertLast(bytes[i]);
+	}
+}
+
+float GetFloat(array<uint8>@ data, int start_index){
+	array<uint8> b = {data[start_index + 3], data[start_index + 2], data[start_index + 1], data[start_index]};
+	/*array<uint8> b = {data[start_index], data[start_index + 1], data[start_index + 2], data[start_index + 3]};*/
+	float f = toFloat(b);
+	start_index += 4;
+	return f;
+}
+
+array<uint8> toByteArray(float f){
+	uint p = fpToIEEE(f);
+	array<uint8> bytes(4);
+	bytes[0] = p >> 24;
+	bytes[1] = p >> 16;
+	bytes[2] = p >>  8;
+	bytes[3] = p;
+	return bytes;
+}
+
+float toFloat(array<uint8> bytes){
+	uint s = bytes[3] & 0xFF;
+        s |= (bytes[2] << 8) & 0xFFFF;
+        s |= (bytes[1] << 16) & 0xFFFFFF;
+        s |= (bytes[0] << 24);
+	
+	return fpFromIEEE(s);
+}
+
+/*char* request_handler::floatToByteArray(float f) {
+	char *array;
+	array = (char*)(&f);
+	return array;
+}*/
 
 void SendPlayerUpdate(){
 	JSON message;
@@ -314,7 +398,9 @@ void SendPlayerUpdate(){
 	//SendData(messages[rand()%messages.size()]);
 }
 
-void ReceiveServerUpdate(){}
+void ReceiveServerUpdate(){
+	
+}
 
 void UpdatePlayerVariables(){
 	int controller_id = ReadCharacter(player_id).controller_id;
@@ -367,6 +453,22 @@ void SendData(string message){
         data.insertLast('\n'[0]);
         Log(info, "Data size " + data.size() );
         SocketTCPSend(socket,data);
+    }
+    else
+    {
+		Log(info, "Socket no longer valid");
+        socket = SOCKET_ID_INVALID;
+		connected_to_server = false;
+		trying_to_connect = false;
+    }
+}
+
+void SendData(array<uint8> message){
+    if( IsValidSocketTCP(socket) )
+    {
+        Log(info, "Sending data" );
+        Log(info, "Data size " + message.size() );
+        SocketTCPSend(socket,message);
     }
     else
     {

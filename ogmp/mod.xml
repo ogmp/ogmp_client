@@ -9,10 +9,19 @@
     <Version>0.1.0</Version>
     <!-- Your immortal stamp -->
     <Author>Gyrth and Surak</Author>
+	<Category>Level Script</Category>
+    <!-- Thumbnail used in-game, no strict size is defined yet, should be 16:9 -->
+    <Thumbnail>Data/Images/ogmp_thumb.jpg</Thumbnail>
+    <!-- First preview image will be used as preview on steamworks, you can add additional ones -->
+    <PreviewImage>Data/Images/ogmp_full.jpg</PreviewImage>
+	<Description>Overgrowth Multiplayer Mod.</Description>
+	<!-- Tags sent to and mainly used by steam workshop -->
+    <Tag>multiplayer</Tag>
+	<Tag>scripting</Tag>
+	<Tag>ogmp</Tag>
+    <Tag>online</Tag>
 
     <!-- Specification for which version of the game that is supported. It's possible to specify more than one -->
-    <SupportedVersion>a227</SupportedVersion>
-    <SupportedVersion>b1</SupportedVersion>
     <SupportedVersion>*</SupportedVersion>
     <LevelHookFile>Data/Scripts/ogmp_clientconnect.as</LevelHookFile>
 </Mod>
