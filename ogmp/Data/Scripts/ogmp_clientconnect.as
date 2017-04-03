@@ -63,6 +63,7 @@ int character_size = 10;
 int level_size = 10;
 int version_size = 10;
 int float_size = 10;
+int string_size = 20;
 
 bool TCPReceived = false;
 
@@ -72,11 +73,9 @@ void Init(string p_level_name) {
 }
 
 void IncomingTCPData(uint socket, array<uint8>@ data) {
-	Log(info, "Data in" );
+	Log(info, "Data in size " + data.length() );
     for( uint i = 0; i < data.length(); i++ ) {
-		if(data[i] == UpdateGame){
-			Print("UpdateGame!\n");
-		}
+		/*Print(data[i] + " ");*/
         Print(data[i] + " ");
     }
 	Print("\n");
@@ -89,11 +88,15 @@ void ProcessIncomingMessage(array<uint8>@ data){
 	Log(info, "Message type : " + message_type);
 	int data_index = 1;
 	if(message_type == SignOn){
-		Log(info, "Incoming: " + "SignOn Command");
-		Log(info, "index: " + data_index);
 		float refresh_rate = GetFloat(data, data_index);
-		Log(info, "index: " + data_index);
-		Log(info, "Refreshrate: " + refresh_rate);
+		string username = GetString(data, data_index);
+		Log(info, "username: " + username);
+		string welcome_message = GetString(data, data_index);
+		Log(info, "welcome_message: " + welcome_message);
+		string team = GetString(data, data_index);
+		Log(info, "team: " + team);
+		string character = GetString(data, data_index);
+		Log(info, "character: " + character);
 		
 		/*refresh_rate = atoi(message_content["refresh_rate"].asString());
 		username = message_content["username"].asString();
@@ -316,12 +319,26 @@ void addToByteArray(float value, int message_length, array<uint8> @data){
 	}
 }
 
-float GetFloat(array<uint8>@ data, int start_index){
+float GetFloat(array<uint8>@ data, int &start_index){
 	array<uint8> b = {data[start_index + 3], data[start_index + 2], data[start_index + 1], data[start_index]};
 	/*array<uint8> b = {data[start_index], data[start_index + 1], data[start_index + 2], data[start_index + 3]};*/
 	float f = toFloat(b);
 	start_index += 4;
 	return f;
+}
+
+string GetString(array<uint8>@ data, int &start_index){
+	array<string> seperated;
+    for( int i = 0; i < string_size; i++, start_index++ ) {
+		//Skip if the char is not an actual number/letter/etc
+		if(data[start_index] < 32){
+			continue;
+		}
+        string s('0');
+        s[0] = data[start_index];
+        seperated.insertLast(s);
+    }
+    return join(seperated, "");
 }
 
 array<uint8> toByteArray(float f){
