@@ -57,13 +57,14 @@ uint8 UpdateGame = 5;
 uint8 UpdateSelf = 6;
 uint8 SavePosition = 7;
 uint8 LoadPosition = 8;
+uint8 UpdateCharacter = 9;
+uint8 Error = 10;
 
 int username_size = 10;
 int character_size = 10;
 int level_size = 10;
 int version_size = 10;
 int float_size = 10;
-int string_size = 20;
 
 bool TCPReceived = false;
 
@@ -97,13 +98,9 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		Log(info, "team: " + team);
 		string character = GetString(data, data_index);
 		Log(info, "character: " + character);
-		
-		/*refresh_rate = atoi(message_content["refresh_rate"].asString());
-		username = message_content["username"].asString();
-		welcome_message = message_content["welcome_message"].asString();
-		team = message_content["team"].asString();
-		character = message_content["character"].asString();
-		connected_to_server = true;*/
+		connected_to_server = true;
+		interval = 1.0 / refresh_rate;
+		Log(info, "interval: " + interval);
 	}
 	else if(message_type == Message){
 		Log(info, "Incoming: " + "Message Command");
@@ -119,6 +116,13 @@ void ProcessIncomingMessage(array<uint8>@ data){
 	}
 	else if (message_type == UpdateSelf){
 		Log(info, "Incoming: " + "UpdateSelf Command");
+	}
+	else if (message_type == UpdateCharacter){
+		Log(info, "Incoming: " + "UpdateCharacter Command");
+	}
+	else if (message_type == Error){
+		Log(info, "Incoming: " + "Error Command");
+		Print("Error message " + GetString(data, data_index) + "\n");
 	}
 	else{
 		//DisplayError("Unknown Message", "Unknown incomming message: " + message_type);
@@ -271,13 +275,13 @@ void SendSignOn(){
 	MovementObject@ player = ReadCharacter(player_id);
 	vec3 position = player.position;
 	
-	addToByteArray("Gyrth", username_size, @message);
-	addToByteArray("Turner", character_size, @message);
-	addToByteArray("red_shards.xml", level_size, @message);
-	addToByteArray("1.0.0", version_size, @message);
-	addToByteArray(position.x, float_size, @message);
-	addToByteArray(position.y, float_size, @message);
-	addToByteArray(position.z, float_size, @message);
+	addToByteArray("Gyrth", @message);
+	addToByteArray("Turner", @message);
+	addToByteArray("red_shards.xml", @message);
+	addToByteArray("1.0.0", @message);
+	addToByteArray(position.x, @message);
+	addToByteArray(position.y, @message);
+	addToByteArray(position.z, @message);
 	
 	
 	Print("Sending: \n");
@@ -301,21 +305,29 @@ array<uint8> toByteArray(string message){
 	return data;
 }
 
-void addToByteArray(string message, uint message_length, array<uint8> @data){
+void addToByteArray(string message, array<uint8> @data){
+	Print("Adding a string to message " + message + "\n");
+	uint8 message_length = message.length();
+	Print("Length " + message_length + "\n");
+	data.insertLast(message_length);
 	for(uint i = 0; i < message_length; i++){
-		if(i >= message.length()){
-			data.insertLast(0);
-		}else{
-			data.insertLast(message.substr(i, 1)[0]);
-		}
+		data.insertLast(message.substr(i, 1)[0]);
 	}
 }
 
-void addToByteArray(float value, int message_length, array<uint8> @data){
+void addToByteArray(float value, array<uint8> @data){
 	/*Print("sending " + value + "\n");*/
 	array<uint8> bytes = toByteArray(value);
-	for(uint i = 0; i < bytes.size(); i++){
+	for(uint i = 0; i < 4; i++){
 		data.insertLast(bytes[i]);
+	}
+}
+
+void addToByteArray(bool value, array<uint8> @data){
+	if(value){
+		data.insertLast(1);
+	}else{
+		data.insertLast(0);
 	}
 }
 
@@ -329,6 +341,8 @@ float GetFloat(array<uint8>@ data, int &start_index){
 
 string GetString(array<uint8>@ data, int &start_index){
 	array<string> seperated;
+	int string_size = data[start_index];
+	start_index++;
     for( int i = 0; i < string_size; i++, start_index++ ) {
 		//Skip if the char is not an actual number/letter/etc
 		if(data[start_index] < 32){
@@ -367,50 +381,51 @@ float toFloat(array<uint8> bytes){
 }*/
 
 void SendPlayerUpdate(){
-	JSON message;
-	JSONValue message_type;
-	MovementObject@ char = ReadCharacter(0);
-
-	message.getRoot()["type"] = JSONValue("Update");
-	message_type["posx"] = JSONValue(char.position.x);
-	message_type["posy"] = JSONValue(char.position.y);
-	message_type["posz"] = JSONValue(char.position.z);
+	
+	array<uint8> message;
+	message.insertLast(UpdateGame);
+	MovementObject@ player = ReadCharacter(player_id);
+	vec3 position = player.position;
+	
+	addToByteArray(player.position.x, @message);
+	addToByteArray(player.position.y, @message);
+	addToByteArray(player.position.z, @message);
 	//TODO corrent x and z
-	message_type["dirx"] = JSONValue(char.position.x);
-	message_type["dirz"] = JSONValue(char.position.z);
-	message_type["crouch"] = JSONValue(MPWantsToCrouch);
-	message_type["jump"] = JSONValue(MPWantsToJump);
-	message_type["attack"] = JSONValue(MPWantsToAttack);
-	message_type["grab"] = JSONValue(MPWantsToGrab);
-	message_type["item"] = JSONValue(MPWantsToItem);
-	message_type["drop"] = JSONValue(MPWantsToDrop);
-	message_type["roll"] = JSONValue(MPWantsToRoll);
-	message_type["offwall"] = JSONValue(MPWantsToJumpOffWall);
-	message_type["activeblock"] = JSONValue(MPActiveBlock);
+	addToByteArray(player.position.x, @message);
+	addToByteArray(player.position.z, @message);
+	
+	addToByteArray(MPWantsToCrouch, @message);
+	addToByteArray(MPWantsToJump, @message);
+	addToByteArray(MPWantsToAttack, @message);
+	addToByteArray(MPWantsToGrab, @message);
+	addToByteArray(MPWantsToItem, @message);
+	addToByteArray(MPWantsToDrop, @message);
+	addToByteArray(MPWantsToRoll, @message);
+	addToByteArray(MPWantsToJumpOffWall, @message);
+	addToByteArray(MPActiveBlock, @message);
+	
+	addToByteArray(blood_damage, @message);
+	addToByteArray(blood_health, @message);
+	addToByteArray(block_health, @message);
+	addToByteArray(temp_health, @message);
+	addToByteArray(permanent_health, @message);
+	addToByteArray(knocked_out, @message);
+	addToByteArray(lives, @message);
+	addToByteArray(blood_amount, @message);
+	
+	addToByteArray(recovery_time, @message);
+	addToByteArray(roll_recovery_time, @message);
+	addToByteArray(ragdoll_type, @message);
+	addToByteArray(blood_delay, @message);
+	addToByteArray(cut_throat, @message);
+	addToByteArray(state, @message);
 
-	message_type["blood_damage"] = JSONValue(blood_damage);
-	message_type["blood_health"] = JSONValue(blood_health);
-	message_type["block_health"] = JSONValue(block_health);
-	message_type["temp_health"] = JSONValue(temp_health);
-	message_type["permanent_health"] = JSONValue(permanent_health);
-	message_type["knocked_out"] = JSONValue(knocked_out);
-	message_type["lives"] = JSONValue(lives);
-	message_type["blood_amount"] = JSONValue(blood_amount);
-	message_type["recovery_time"] = JSONValue(recovery_time);
-	message_type["roll_recovery_time"] = JSONValue(roll_recovery_time);
-	message_type["ragdoll_type"] = JSONValue(ragdoll_type);
-	message_type["blood_delay"] = JSONValue(blood_delay);
-	message_type["cut_throat"] = JSONValue(cut_throat);
-	message_type["state"] = JSONValue(state);
+	MPWantsToRoll = false;
+	MPWantsToJumpOffWall = false;
+	MPActiveBlock = false;
 
-	char.Execute("MPWantsToRoll = false;");
-	char.Execute("MPWantsToJumpOffWall = false;");
-	char.Execute("MPActiveBlock = false;");
-
-	message.getRoot()["content"] = message_type;
-	SendData(message.writeString(false));
+	SendData(message);
 	//Print(message.writeString(false) + "\n");
-
 	//array<string> messages = {"This is the first message", "and another one", "bloop", "soooo", "hmm yeah"};
 	//SendData(messages[rand()%messages.size()]);
 }
