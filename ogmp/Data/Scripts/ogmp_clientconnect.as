@@ -168,36 +168,43 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		float remote_dirx = GetFloat(data, data_index);
 		float remote_dirz = GetFloat(data, data_index);
 		
+		bool remote_crouch = GetBool(data, data_index);
+		bool remote_jump = GetBool(data, data_index);
+		bool remote_attack = GetBool(data, data_index);
+		bool remote_grab = GetBool(data, data_index);
+		bool remote_item = GetBool(data, data_index);
+		bool remote_drop = GetBool(data, data_index);
+		bool remote_roll = GetBool(data, data_index);
+		bool remote_jumpoffwall = GetBool(data, data_index);
+		bool remote_activateblock = GetBool(data, data_index);
+		
+		float remote_blooddamage = GetFloat(data, data_index);
+		float remote_bloodhealth = GetFloat(data, data_index);
+		float remote_blockhealth = GetFloat(data, data_index);
+		float remote_temphealth = GetFloat(data, data_index);
+		float remote_permanenthealth = GetFloat(data, data_index);
+		
+		int remote_knockedout = GetInt(data, data_index);
+		int remote_lives = GetInt(data, data_index);
+		
+		float remote_bloodamount = GetFloat(data, data_index);
+		float remote_recoverytime = GetFloat(data, data_index);
+		float remote_rollrecoverytime = GetFloat(data, data_index);
+		
+		bool remote_removeblood = GetBool(data, data_index);
+		int remote_blooddelay = GetInt(data, data_index);
+		bool remote_cutthroat = GetBool(data, data_index);
+		int remote_state = GetInt(data, data_index);
+		
 		MovementObject@ remote_player = GetRemotePlayer(remote_username);
 		if(remote_player !is null){
 			remote_player.position = vec3(remote_posx, remote_posy, remote_posz);
+			remote_player.Execute("dir_x = " + remote_dirx + ";");
+			remote_player.Execute("dir_z = " + remote_dirz + ";");
+			/*Print("player_dir " + player_dir.x + " " + player_dir.z + "\n");*/
 		}else{
 			Print("Can't find the user " + remote_username);
 		}
-		
-		/*update_reply.add_to_buffers((item.second)->get_crouch());
-		update_reply.add_to_buffers((item.second)->get_jump());
-		update_reply.add_to_buffers((item.second)->get_attack());
-		update_reply.add_to_buffers((item.second)->get_grab());
-		update_reply.add_to_buffers((item.second)->get_item());
-		update_reply.add_to_buffers((item.second)->get_drop());
-		update_reply.add_to_buffers((item.second)->get_roll());
-		update_reply.add_to_buffers((item.second)->get_jumpoffwall());
-		update_reply.add_to_buffers((item.second)->get_activeblock());
-		update_reply.add_to_buffers((item.second)->get_blood_damage());
-		update_reply.add_to_buffers((item.second)->get_blood_health());
-		update_reply.add_to_buffers((item.second)->get_block_health());
-		update_reply.add_to_buffers((item.second)->get_temp_health());
-		update_reply.add_to_buffers((item.second)->get_permanent_health());
-		update_reply.add_to_buffers((item.second)->get_knocked_out());
-		update_reply.add_to_buffers((item.second)->get_lives());
-		update_reply.add_to_buffers((item.second)->get_blood_amount());
-		update_reply.add_to_buffers((item.second)->get_recovery_time());
-		update_reply.add_to_buffers((item.second)->get_roll_recovery_time());
-		update_reply.add_to_buffers((item.second)->get_remove_blood());
-		update_reply.add_to_buffers((item.second)->get_blood_delay());
-		update_reply.add_to_buffers((item.second)->get_cut_throat());
-		update_reply.add_to_buffers((item.second)->get_state());*/
 	}
 	else if (message_type == Error){
 		Log(info, "Incoming: " + "Error Command");
@@ -474,6 +481,12 @@ bool GetBool(array<uint8>@ data, int &start_index){
 	}
 }
 
+int GetInt(array<uint8>@ data, int &start_index){
+	uint8 b = data[start_index];
+	start_index++;
+	return int(b);
+}
+
 array<uint8> toByteArray(float f){
 	uint p = fpToIEEE(f);
 	array<uint8> bytes(4);
@@ -509,9 +522,10 @@ void SendPlayerUpdate(){
 	addToByteArray(player.position.x, @message);
 	addToByteArray(player.position.y, @message);
 	addToByteArray(player.position.z, @message);
-	//TODO corrent x and z
-	addToByteArray(player.position.x, @message);
-	addToByteArray(player.position.z, @message);
+	vec3 player_dir = GetPlayerTargetVelocity();
+	/*Print("player_dir " + player_dir.x + " " + player_dir.z + "\n");*/
+	addToByteArray(player_dir.x, @message);
+	addToByteArray(player_dir.z, @message);
 	
 	addToByteArray(MPWantsToCrouch, @message);
 	addToByteArray(MPWantsToJump, @message);
@@ -547,6 +561,29 @@ void SendPlayerUpdate(){
 	//Print(message.writeString(false) + "\n");
 	//array<string> messages = {"This is the first message", "and another one", "bloop", "soooo", "hmm yeah"};
 	//SendData(messages[rand()%messages.size()]);
+}
+
+vec3 GetPlayerTargetVelocity() {
+    vec3 target_velocity(0.0f);    
+    vec3 right;
+    {
+        right = camera.GetFlatFacing();
+        float side = right.x;
+        right.x = -right .z;
+        right.z = side;
+    }
+	int controller_id = ReadCharacter(player_id).controller_id;
+
+    target_velocity -= GetMoveYAxis(controller_id)*camera.GetFlatFacing();
+    target_velocity += GetMoveXAxis(controller_id)*right;
+
+    if(length_squared(target_velocity)>1){
+        target_velocity = normalize(target_velocity);
+    }
+    /*if(trying_to_get_weapon > 0){
+        target_velocity = get_weapon_dir;
+    }*/
+    return target_velocity;
 }
 
 void ReceiveServerUpdate(){
