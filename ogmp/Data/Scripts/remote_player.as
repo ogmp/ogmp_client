@@ -5,6 +5,22 @@ float grab_key_time;
 bool listening = false;
 bool delay_jump;
 
+bool MPWantsToCrouch = false;
+bool MPWantsToJump = false;
+bool MPWantsToAttack = false;
+bool MPWantsToGrab = false;
+bool MPWantsToItem = false;
+bool MPWantsToDrop = false;
+bool MPWantsToRoll = false;
+bool MPWantsToJumpOffWall = false;
+bool MPActiveBlock = false;
+bool MPIsConnected = false;
+float dir_z = 0.0f;
+float dir_x = 0.0f;
+
+enum PathFindType {_pft_nav_mesh, _pft_climb, _pft_drop, _pft_jump};
+PathFindType path_find_type = _pft_nav_mesh;
+
 Situation situation;
 
 int IsUnaware() {
@@ -331,5 +347,21 @@ int GetRightFootPlanted(){
         return 1;
     }else{
         return 0;
+    }
+}
+bool StuckToNavMesh() {
+    if(path_find_type == _pft_nav_mesh){
+        vec3 nav_pos = GetNavPointPos(this_mo.position); 
+        if(abs(nav_pos[1] - this_mo.position[1]) > 1.0){
+            return false;
+        }
+        nav_pos[1] = this_mo.position[1];
+        if(distance(nav_pos, this_mo.position) < 0.1){
+            return true;
+        } else {
+            return false;
+        }
+    } else {
+        return false;
     }
 }

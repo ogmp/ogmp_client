@@ -2,11 +2,15 @@ uint socket = SOCKET_ID_INVALID;
 uint connect_try_countdown = 5;
 string level_name = "";
 int player_id = -1;
+IMGUI imGUI;
 
 string username = "";
 string team = "";
 string welcome_message = "";
 string character = "";
+FontSetup main_font("edosz", 100 , HexColor("#CCCCCC"), true);
+
+string turner = "Data/Characters/ogmp/turner.xml";
 
 int ragdoll_counter = 0;
 float dir_x = 0.0f;
@@ -68,13 +72,32 @@ int float_size = 10;
 
 bool TCPReceived = false;
 
+array<RemotePlayer@> remote_players;
+
+IMDivider@ main_divider;
+
+class RemotePlayer{
+	int object_id;
+	string username;
+	string team;
+	RemotePlayer(string username_, string team_, int object_id_){
+		username = username_;
+		team = team_;
+		object_id = object_id_;
+	}
+}
+
 void Init(string p_level_name) {
     level_name = p_level_name;
+	imGUI.setFooterHeight(600);
+	imGUI.setup();
+	@main_divider = IMDivider("main_divider", DOVertical);
+	imGUI.getFooter().setElement(main_divider);
     player_id = GetPlayerCharacterID();
 }
 
 void IncomingTCPData(uint socket, array<uint8>@ data) {
-	Log(info, "Data in size " + data.length() );
+	/*Log(info, "Data in size " + data.length() );*/
     for( uint i = 0; i < data.length(); i++ ) {
 		/*Print(data[i] + " ");*/
         Print(data[i] + " ");
@@ -89,6 +112,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 	Log(info, "Message type : " + message_type);
 	int data_index = 1;
 	if(message_type == SignOn){
+		Log(info, "Incoming: " + "SignOn Command");
 		float refresh_rate = GetFloat(data, data_index);
 		string username = GetString(data, data_index);
 		Log(info, "username: " + username);
@@ -104,9 +128,26 @@ void ProcessIncomingMessage(array<uint8>@ data){
 	}
 	else if(message_type == Message){
 		Log(info, "Incoming: " + "Message Command");
+		string message_source = GetString(data, data_index);		
+		string message_text = GetString(data, data_index);		
+		bool notif = GetBool(data, data_index);		
+		IMText label_source("From " + message_source, main_font);
+		IMText label_text("Message: " + message_text, main_font);
+		
+		IMText label_notif("Is notification " + notif, main_font);
+		main_divider.append(label_source);
+		main_divider.append(label_text);
+		main_divider.append(label_notif);
 	}
 	else if (message_type == SpawnCharacter){
 		Log(info, "Incoming: " + "SpawnCharacter Command");
+		string username = GetString(data, data_index);
+		string team = GetString(data, data_index);
+		string character = GetString(data, data_index);
+		float pos_x = GetFloat(data, data_index);
+		float pos_y = GetFloat(data, data_index);
+		float pos_z = GetFloat(data, data_index);
+		CreateRemotePlayer(username, team, character, vec3(pos_x, pos_y, pos_z));
 	}
 	else if (message_type == RemoveCharacter){
 		Log(info, "Incoming: " + "RemoveCharacter Command");
@@ -119,6 +160,44 @@ void ProcessIncomingMessage(array<uint8>@ data){
 	}
 	else if (message_type == UpdateCharacter){
 		Log(info, "Incoming: " + "UpdateCharacter Command");
+		
+		string remote_username = GetString(data, data_index);
+		float remote_posx = GetFloat(data, data_index);
+		float remote_posy = GetFloat(data, data_index);
+		float remote_posz = GetFloat(data, data_index);
+		float remote_dirx = GetFloat(data, data_index);
+		float remote_dirz = GetFloat(data, data_index);
+		
+		MovementObject@ remote_player = GetRemotePlayer(remote_username);
+		if(remote_player !is null){
+			remote_player.position = vec3(remote_posx, remote_posy, remote_posz);
+		}else{
+			Print("Can't find the user " + remote_username);
+		}
+		
+		/*update_reply.add_to_buffers((item.second)->get_crouch());
+		update_reply.add_to_buffers((item.second)->get_jump());
+		update_reply.add_to_buffers((item.second)->get_attack());
+		update_reply.add_to_buffers((item.second)->get_grab());
+		update_reply.add_to_buffers((item.second)->get_item());
+		update_reply.add_to_buffers((item.second)->get_drop());
+		update_reply.add_to_buffers((item.second)->get_roll());
+		update_reply.add_to_buffers((item.second)->get_jumpoffwall());
+		update_reply.add_to_buffers((item.second)->get_activeblock());
+		update_reply.add_to_buffers((item.second)->get_blood_damage());
+		update_reply.add_to_buffers((item.second)->get_blood_health());
+		update_reply.add_to_buffers((item.second)->get_block_health());
+		update_reply.add_to_buffers((item.second)->get_temp_health());
+		update_reply.add_to_buffers((item.second)->get_permanent_health());
+		update_reply.add_to_buffers((item.second)->get_knocked_out());
+		update_reply.add_to_buffers((item.second)->get_lives());
+		update_reply.add_to_buffers((item.second)->get_blood_amount());
+		update_reply.add_to_buffers((item.second)->get_recovery_time());
+		update_reply.add_to_buffers((item.second)->get_roll_recovery_time());
+		update_reply.add_to_buffers((item.second)->get_remove_blood());
+		update_reply.add_to_buffers((item.second)->get_blood_delay());
+		update_reply.add_to_buffers((item.second)->get_cut_throat());
+		update_reply.add_to_buffers((item.second)->get_state());*/
 	}
 	else if (message_type == Error){
 		Log(info, "Incoming: " + "Error Command");
@@ -127,6 +206,26 @@ void ProcessIncomingMessage(array<uint8>@ data){
 	else{
 		//DisplayError("Unknown Message", "Unknown incomming message: " + message_type);
 	}
+}
+
+MovementObject@ GetRemotePlayer(string username){
+	for(uint i = 0; i < remote_players.size(); i++){
+		if(remote_players[i].username == username){
+			MovementObject@ found_remote_player = ReadCharacterID(remote_players[i].object_id);
+			return found_remote_player;
+		}
+	}
+	return null;
+}
+
+void CreateRemotePlayer(string username, string team, string character, vec3 position){
+	int obj_id = CreateObject(turner);
+	remote_players.insertLast(RemotePlayer(username, team, obj_id));
+	MovementObject@ remote_player = ReadCharacterID(obj_id);
+	Object@ object = ReadObjectFromID(obj_id);
+	ScriptParams@ params = object.GetScriptParams();
+	params.SetString("Teams", team);
+	remote_player.position = position;
 }
 
 void PrintByteArray(array<uint8> data){
@@ -145,6 +244,7 @@ void ReceiveMessage(string msg) {
 }
 
 void DrawGUI() {
+	imGUI.render();
 }
 
 void Update() {
@@ -170,10 +270,18 @@ void Update(int paused) {
         PreConnectedKeyChecks();
         ConnectToServer();
     }
+	// process any messages produced from the update
+    while( imGUI.getMessageQueueSize() > 0 ) {
+        IMMessage@ message = imGUI.getNextMessage();
+		if( message.name == "" ){return;}
+        //Log( info, "Got processMessage " + message.name );
+	}
+	imGUI.update();
 }
 
 void SetWindowDimensions(int w, int h)
 {
+	imGUI.doScreenResize();
 }
 
 void PreConnectedKeyChecks(){
@@ -220,23 +328,24 @@ void KeyChecks(){
 void ConnectToServer(){
     if(trying_to_connect){
         if( socket == SOCKET_ID_INVALID ) {
-            if( connect_try_countdown == 0 ) {
-                if( level_name != "") {
-                    Log( info, "Trying to connect" );
-					socket = CreateSocketTCP("127.0.0.1", 2000);
-                    if( socket != SOCKET_ID_INVALID ) {
-                        Log( info, "Connected " + socket );
-						trying_to_connect = false;
-						SendSignOn();
-                    } else {
-                        Log( warning, "Unable to connect, will try again soon" );
-                        connect_try_countdown = 60*5;
-                    }
+            if( level_name != "") {
+                Log( info, "Trying to connect" );
+				socket = CreateSocketTCP("127.0.0.1", 2000);
+                if( socket != SOCKET_ID_INVALID ) {
+                    Log( info, "Connected " + socket );
+					trying_to_connect = false;
+					SendSignOn();
+                } else {
+                    Log( warning, "Unable to connect, will try again soon" );
                 }
-            } else {
-                connect_try_countdown--;
             }
         }
+		if( !IsValidSocketTCP(socket) ){
+			Log(info, "Socket no longer valid");
+			socket = SOCKET_ID_INVALID;
+			connected_to_server = false;
+			trying_to_connect = false;
+		}
     }
 }
 
@@ -275,23 +384,22 @@ void SendSignOn(){
 	MovementObject@ player = ReadCharacter(player_id);
 	vec3 position = player.position;
 	
-	addToByteArray("Gyrth", @message);
+	addToByteArray("Gyrth" + rand(), @message);
 	addToByteArray("Turner", @message);
-	addToByteArray("red_shards.xml", @message);
+	addToByteArray(level_name, @message);
 	addToByteArray("1.0.0", @message);
 	addToByteArray(position.x, @message);
 	addToByteArray(position.y, @message);
 	addToByteArray(position.z, @message);
 	
 	
-	Print("Sending: \n");
+	/*Print("Sending: \n");
 	for(uint i = 0; i < message.size(); i++){
 		Print("" + message[i]);
 	}
 	Print("\n");
-	Print("Send done.\n");
+	Print("Send done.\n");*/
 	//message.insertLast('\n'[0]);
-	
 	SendData(message);
 	//Print(message.writeString(false) + "\n");
 }
@@ -353,6 +461,17 @@ string GetString(array<uint8>@ data, int &start_index){
         seperated.insertLast(s);
     }
     return join(seperated, "");
+}
+
+bool GetBool(array<uint8>@ data, int &start_index){
+	
+	uint8 b = data[start_index];
+	start_index++;
+	if(b == 1){
+		return true;
+	}else{
+		return false;
+	}
 }
 
 array<uint8> toByteArray(float f){
@@ -474,32 +593,11 @@ void UpdatePlayerVariables(){
     //Log(info, dir_z + " dir_z");
 }
 
-void SendData(string message){
-    if( IsValidSocketTCP(socket) )
-    {
-        Log(info, "Sending data" );
-        array<uint8> data;
-        for(uint i = 0; i < message.length(); i++){
-            data.insertLast(message.substr(i, 1)[0]);
-        }
-        data.insertLast('\n'[0]);
-        Log(info, "Data size " + data.size() );
-        SocketTCPSend(socket,data);
-    }
-    else
-    {
-		Log(info, "Socket no longer valid");
-        socket = SOCKET_ID_INVALID;
-		connected_to_server = false;
-		trying_to_connect = false;
-    }
-}
-
 void SendData(array<uint8> message){
     if( IsValidSocketTCP(socket) )
     {
-        Log(info, "Sending data" );
-        Log(info, "Data size " + message.size() );
+        /*Log(info, "Sending data" );
+        Log(info, "Data size " + message.size() );*/
         SocketTCPSend(socket,message);
     }
     else
