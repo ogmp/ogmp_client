@@ -2,13 +2,16 @@ uint socket = SOCKET_ID_INVALID;
 uint connect_try_countdown = 5;
 string level_name = "";
 int player_id = -1;
+int initial_sequence_id;
 IMGUI imGUI;
+
+Chat chat;
 
 string username = "";
 string team = "";
 string welcome_message = "";
 string character = "";
-FontSetup main_font("edosz", 100 , HexColor("#CCCCCC"), true);
+FontSetup main_font("arial", 50 , HexColor("#fff"), false);
 
 string turner = "Data/Characters/ogmp/turner.xml";
 
@@ -76,6 +79,8 @@ array<RemotePlayer@> remote_players;
 
 IMDivider@ main_divider;
 
+array<uint8>@ data_collection = {};
+
 class RemotePlayer{
 	int object_id;
 	string username;
@@ -89,22 +94,23 @@ class RemotePlayer{
 
 void Init(string p_level_name) {
     level_name = p_level_name;
-	imGUI.setFooterHeight(600);
+	imGUI.setFooterHeight(350);
 	imGUI.setup();
-	@main_divider = IMDivider("main_divider", DOVertical);
+	/*@main_divider = IMDivider("main_divider", DOVertical);
 	imGUI.getFooter().setElement(main_divider);
-    player_id = GetPlayerCharacterID();
+    player_id = GetPlayerCharacterID();*/
+	chat.Initialize();
 }
 
 void IncomingTCPData(uint socket, array<uint8>@ data) {
-	/*Log(info, "Data in size " + data.length() );*/
+	Log(info, "Data in size " + data.length() );
     for( uint i = 0; i < data.length(); i++ ) {
 		/*Print(data[i] + " ");*/
+		data_collection.insertLast(data[i]);
         Print(data[i] + " ");
     }
 	Print("\n");
 	PrintByteArray(data);
-	ProcessIncomingMessage(data);
 }
 
 void ProcessIncomingMessage(array<uint8>@ data){
@@ -114,6 +120,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 	if(message_type == SignOn){
 		Log(info, "Incoming: " + "SignOn Command");
 		float refresh_rate = GetFloat(data, data_index);
+		Log(info, "refresh_rate: " + refresh_rate);
 		string username = GetString(data, data_index);
 		Log(info, "username: " + username);
 		string welcome_message = GetString(data, data_index);
@@ -128,16 +135,11 @@ void ProcessIncomingMessage(array<uint8>@ data){
 	}
 	else if(message_type == Message){
 		Log(info, "Incoming: " + "Message Command");
-		string message_source = GetString(data, data_index);		
-		string message_text = GetString(data, data_index);		
-		bool notif = GetBool(data, data_index);		
-		IMText label_source("From " + message_source, main_font);
-		IMText label_text("Message: " + message_text, main_font);
+		string message_source = GetString(data, data_index);
+		string message_text = GetString(data, data_index);
+		bool notif = GetBool(data, data_index);
 		
-		IMText label_notif("Is notification " + notif, main_font);
-		main_divider.append(label_source);
-		main_divider.append(label_text);
-		main_divider.append(label_notif);
+		chat.AddMessage(message_text, message_source, notif);
 	}
 	else if (message_type == SpawnCharacter){
 		Log(info, "Incoming: " + "SpawnCharacter Command");
@@ -201,7 +203,30 @@ void ProcessIncomingMessage(array<uint8>@ data){
 			remote_player.position = vec3(remote_posx, remote_posy, remote_posz);
 			remote_player.Execute("dir_x = " + remote_dirx + ";");
 			remote_player.Execute("dir_z = " + remote_dirz + ";");
-			/*Print("player_dir " + player_dir.x + " " + player_dir.z + "\n");*/
+			remote_player.Execute("MPWantsToCrouch = " + remote_crouch + ";");
+			remote_player.Execute("MPWantsToJump = " + remote_jump + ";");
+			remote_player.Execute("MPWantsToAttack = " + remote_attack + ";");
+			remote_player.Execute("MPWantsToGrab = " + remote_grab + ";");
+			remote_player.Execute("MPWantsToItem = " + remote_item + ";");
+			remote_player.Execute("MPWantsToDrop = " + remote_drop + ";");
+			remote_player.Execute("MPWantsToRoll = " + remote_roll + ";");
+			remote_player.Execute("MPWantsToJumpOffWall = " + remote_jumpoffwall + ";");
+			remote_player.Execute("MPActiveBlock = " + remote_activateblock + ";");
+			remote_player.Execute("MPActiveBlock = " + remote_activateblock + ";");
+			
+			remote_player.Execute("blood_damage = " + remote_blooddamage + ";");
+			remote_player.Execute("blood_health = " + remote_bloodhealth + ";");
+			remote_player.Execute("block_health = " + remote_blockhealth + ";");
+			remote_player.Execute("temp_health = " + remote_temphealth + ";");
+			remote_player.Execute("permanent_health = " + remote_permanenthealth + ";");
+			remote_player.Execute("blood_amount = " + remote_bloodamount + ";");
+			remote_player.Execute("recovery_time = " + remote_recoverytime + ";");
+			remote_player.Execute("roll_recovery_time = " + remote_rollrecoverytime + ";");
+			
+			remote_player.Execute("knocked_out = " + remote_knockedout + ";");
+			remote_player.Execute("blood_delay = " + remote_blooddelay + ";");
+			remote_player.Execute("state = " + remote_state + ";");
+			
 		}else{
 			Print("Can't find the user " + remote_username);
 		}
@@ -254,11 +279,8 @@ void DrawGUI() {
 	imGUI.render();
 }
 
-void Update() {
-	Update(0);
-}
-
 void Update(int paused) {
+	imGUI.update();
     if(!post_init_run){
         player_id = GetPlayerCharacterID();
         post_init_run = true;
@@ -283,7 +305,28 @@ void Update(int paused) {
 		if( message.name == "" ){return;}
         //Log( info, "Got processMessage " + message.name );
 	}
-	imGUI.update();
+	SeparateMessages();
+	if(GetInputPressed(0, "p")){
+		chat.AddMessage("Message" + rand(), "Server", false);
+	}
+	UpdateInput();
+}
+
+void SeparateMessages(){
+	if(data_collection.size() < 1){
+		return;
+	}
+	uint message_size = data_collection[0];
+	if( data_collection.size() <= message_size ){
+		return;
+	}
+	array<uint8> message;
+	for(uint i = 1; i <= message_size; i++){
+		message.insertLast(data_collection[i]);
+	}
+	data_collection.removeRange(0, message_size + 1);
+	/*Print("Message size " + message.size() + "\n");*/
+	ProcessIncomingMessage(message);
 }
 
 void SetWindowDimensions(int w, int h)
@@ -363,16 +406,6 @@ void DisconnectFromServer(){
 	connected_to_server = false;
 }
 
-void SendChatMessage(string chat_message){
-	JSON message;
-	message.getRoot()["type"] = JSONValue("Message");
-	JSONValue message_type;
-	message_type["username"] = JSONValue("Gyrth");
-	message_type["text"] = JSONValue(chat_message);
-	message.getRoot()["content"] = message_type;
-	/*SendData(message.writeString(false));*/
-}
-
 void SendSavePosition(){
 	JSON message;
 	message.getRoot()["type"] = JSONValue("SavePosition");
@@ -391,7 +424,9 @@ void SendSignOn(){
 	MovementObject@ player = ReadCharacter(player_id);
 	vec3 position = player.position;
 	
-	addToByteArray("Gyrth" + rand(), @message);
+	username = "Gyrth" + rand();
+	
+	addToByteArray(username, @message);
 	addToByteArray("Turner", @message);
 	addToByteArray(level_name, @message);
 	addToByteArray("1.0.0", @message);
@@ -411,6 +446,14 @@ void SendSignOn(){
 	//Print(message.writeString(false) + "\n");
 }
 
+void SendChatMessage(string chat_message){
+	array<uint8> message;
+	message.insertLast(Message);
+	addToByteArray(username, @message);
+	addToByteArray(chat_message, @message);
+	SendData(message);
+}
+
 array<uint8> toByteArray(string message){
 	array<uint8> data;
 	for(uint i = 0; i < message.length(); i++){
@@ -421,9 +464,9 @@ array<uint8> toByteArray(string message){
 }
 
 void addToByteArray(string message, array<uint8> @data){
-	Print("Adding a string to message " + message + "\n");
+	/*Print("Adding a string to message " + message + "\n");*/
 	uint8 message_length = message.length();
-	Print("Length " + message_length + "\n");
+	/*Print("Length " + message_length + "\n");*/
 	data.insertLast(message_length);
 	for(uint i = 0; i < message_length; i++){
 		data.insertLast(message.substr(i, 1)[0]);
@@ -457,6 +500,7 @@ float GetFloat(array<uint8>@ data, int &start_index){
 string GetString(array<uint8>@ data, int &start_index){
 	array<string> seperated;
 	int string_size = data[start_index];
+	/*Print("String size " + string_size + "\n");*/
 	start_index++;
     for( int i = 0; i < string_size; i++, start_index++ ) {
 		//Skip if the char is not an actual number/letter/etc
@@ -467,12 +511,14 @@ string GetString(array<uint8>@ data, int &start_index){
         s[0] = data[start_index];
         seperated.insertLast(s);
     }
+	/*Print("result " + join(seperated, "") + "\n");*/
     return join(seperated, "");
 }
 
 bool GetBool(array<uint8>@ data, int &start_index){
 	
 	uint8 b = data[start_index];
+	/*Print("bool byte value " + int(b) + "\n");*/
 	start_index++;
 	if(b == 1){
 		return true;
@@ -630,6 +676,10 @@ void UpdatePlayerVariables(){
     //Log(info, dir_z + " dir_z");
 }
 
+void UpdateInput(){
+	chat.Update();
+}
+
 void SendData(array<uint8> message){
     if( IsValidSocketTCP(socket) )
     {
@@ -658,4 +708,185 @@ int GetPlayerCharacterID() {
 }
 bool HasFocus(){
 	return false;
+}
+
+class Chat{
+	IMDivider@ chat_divider;
+	IMDivider@ chat_input_divider;
+	IMText@ chat_message_label;
+	float chat_width = 1500.0f;
+	float chat_height = 50.0f;
+	int move_in_time = 250;
+	int fade_out_time = 2500;
+	string white_background = "Textures/ui/menus/main/white_square.png";
+	array<ChatMessage@> chat_messages;
+	uint num_chat_messages = 5;
+	string new_chat_message = "";
+	int current_index = 0;
+	int cursor_offset = 0;
+	bool chat_input_shown = false;
+	void Initialize(){
+		IMDivider whole_chat("whole_chat", DOVertical);
+		
+		@chat_divider = IMDivider("chat_divider", DOVertical);
+		@chat_input_divider = IMDivider("chat_input_divider", DOVertical);
+		
+		whole_chat.append(chat_divider);
+		whole_chat.append(chat_input_divider);
+		
+		whole_chat.setAlignment(CACenter, CATop);
+		/*chat_divider.setAlignment(CACenter, CATop);*/
+		imGUI.getFooter().setAlignment(CACenter, CATop);
+		
+		chat_divider.showBorder();
+		imGUI.getFooter().setElement(whole_chat);
+	}
+	void AddMessage(string message_, string source_, bool notif_){
+		chat_divider.clear();
+		chat_messages.insertLast(ChatMessage(message_, source_, notif_));
+		DrawChat();
+	}
+	void DrawChat(){
+		for(uint i = 0; i < chat_messages.size(); i++){
+			DrawMessage(chat_messages[i].message, chat_messages[i].source, chat_messages[i].notif, i);
+		}
+		if(chat_messages.size() > num_chat_messages){
+			chat_messages.removeAt(0);
+		}
+	}
+	void DrawMessage(string message_, string source_, bool notif, uint index){
+		IMDivider message_divider("message_divider", DOHorizontal);
+		IMContainer message_container(chat_width, chat_height);
+		IMImage background(white_background);
+		
+		message_divider.setZOrdering(2);
+		background.setZOrdering(0);
+		
+		background.setSize(vec2(chat_width, chat_height));
+		background.setColor(vec4(0,0,0,0.55));
+		message_container.addFloatingElement(background, "background", vec2(0));
+		float move_distance = 0;
+		
+		if(index == (chat_messages.size() - 1) ){
+			move_distance = num_chat_messages * chat_height;
+		}else if((chat_messages.size() - 1) == num_chat_messages){
+			move_distance = chat_height;
+		}
+		message_container.addUpdateBehavior(IMMoveIn ( move_in_time, vec2(0, move_distance), inSineTween ), "");
+		message_container.setElement(message_divider);
+		if(notif){
+			IMText message_text(message_, main_font);
+			message_divider.append(message_text);
+		}else{
+			IMText label_source(source_, main_font);
+			IMText label_text(" : " + message_, main_font);
+			message_divider.append(label_source);
+			message_divider.append(label_text);
+		}
+		chat_divider.append(message_container);
+	}
+	void AddChatInput(){
+		IMDivider new_chat_divider("new_chat_divider", DOHorizontal);
+		IMContainer new_chat_container(chat_width, chat_height);
+		IMImage background(white_background);
+		
+		new_chat_divider.setZOrdering(2);
+		background.setZOrdering(0);
+		
+		background.setSize(vec2(chat_width, chat_height));
+		background.setColor(vec4(0,0,0,0.55));
+		new_chat_container.addFloatingElement(background, "background", vec2(0));
+		new_chat_container.addUpdateBehavior(IMMoveIn ( move_in_time, vec2(0, chat_height), inSineTween ), "");
+		new_chat_container.setElement(new_chat_divider);
+		
+		@chat_message_label = IMText(new_chat_message, main_font);
+		IMText cursor("_", main_font);
+		chat_message_label.setZOrdering(2);
+		cursor.setZOrdering(2);
+		float speed = 2.0f;
+		cursor.addUpdateBehavior(IMPulseAlpha(1.0f, 0.0f, speed), "");
+		new_chat_divider.append(chat_message_label);
+		new_chat_divider.append(cursor);
+		chat_input_divider.append(new_chat_container);
+		initial_sequence_id = 0;
+		chat_input_shown = true;
+	}
+	void RemoveChatInput(){
+		if(chat_input_shown){
+			chat_input_divider.clear();
+			new_chat_message = "";
+			chat_input_shown = false;
+		}
+	}
+	void Update(){
+		if(chat_input_shown){
+			array<KeyboardPress> inputs = GetRawKeyboardInputs();
+			if(inputs.size() > 0){
+				uint16 possible_new_input = inputs[inputs.size()-1].s_id;
+				if(possible_new_input != uint16(initial_sequence_id)){
+					uint32 keycode = inputs[inputs.size()-1].keycode;
+					initial_sequence_id = inputs[inputs.size()-1].s_id;
+					uint max_query_length = 20;
+						
+					array<int> ignore_keycodes = {27};
+					if(ignore_keycodes.find(keycode) != -1 || keycode > 500){
+						return;
+					}
+					
+					//Backspace
+					if(keycode == 8){
+						//Check if there are enough chars to delete the last one.
+						if(new_chat_message.length() - cursor_offset > 0){
+							uint new_length = new_chat_message.length() - 1;
+							if(new_length >= 0 && new_length <= max_query_length){
+								new_chat_message.erase(new_chat_message.length() - cursor_offset - 1, 1);
+								chat_message_label.setText(new_chat_message);
+								return;
+							}
+						}else{
+							return;
+						}
+					}
+					//Delete pressed
+					else if(keycode == 127){
+						if(cursor_offset > 0){
+							new_chat_message.erase(new_chat_message.length() - cursor_offset, 1);
+							cursor_offset--;
+							chat_message_label.setText(new_chat_message);
+						}
+						return;
+					}
+					if(new_chat_message.length() == 20){
+						return;
+					}
+					string new_character('0');
+					new_character[0] = keycode;
+					new_chat_message.insert(new_chat_message.length() - cursor_offset, new_character);
+					chat_message_label.setText(new_chat_message);
+				}
+			}
+			if(GetInputPressed(0, "return")){
+				if(new_chat_message.length() > 0){
+					SendChatMessage(new_chat_message);
+				}
+				current_index = 0;
+				cursor_offset = 0;
+				RemoveChatInput();
+			}
+		}else{
+			if(GetInputPressed(0, "return")){
+				AddChatInput();
+			}
+		}
+	}
+}
+class ChatMessage{
+	string source;
+	string message;
+	bool notif;
+	ChatMessage(string message_, string source_, bool notif_){
+		message = message_;
+		source = source_;
+		notif = notif_;
+	}
 }
