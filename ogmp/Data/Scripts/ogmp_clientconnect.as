@@ -1,3 +1,4 @@
+
 uint socket = SOCKET_ID_INVALID;
 uint connect_try_countdown = 5;
 string level_name = "";
@@ -11,9 +12,13 @@ string username = "";
 string team = "";
 string welcome_message = "";
 string character = "";
-FontSetup main_font("arial", 50 , HexColor("#fff"), false);
+FontSetup main_font("arial", 30 , vec4(0,0,0,0.75), false);
+FontSetup client_connect_font("arial", 50 , vec4(1,1,1,0.75), true);
 
 string turner = "Data/Characters/ogmp/turner.xml";
+
+array<string> adjectives = {"Little", "Old", "Bad", "Brave", "Handsome", "Quaint", "Prickly", "Nervous", "Jolly", "Gigantic", "Itchy", "Thoughtless", "Crooked", "Hissing", "Slow", "Flaky", "Damaged"};
+array<string> nouns = {"Cat", "Walnut", "Bird", "Cookie", "Aardvark", "Boy", "Dame", "Kitty", "Person", "Cow", "Dragon", "Investor", "Cook", "Frenchman", "Priest", "Tiger", "Zebra", "Raven", "David"};
 
 int ragdoll_counter = 0;
 float dir_x = 0.0f;
@@ -49,6 +54,8 @@ bool connected_to_server = false;
 bool post_init_run = false;
 bool trying_to_connect = false;
 bool showing_playerlist = false;
+bool cc_ui_added = false;
+bool getting_server_list = false;
 
 float update_timer = 0.0f;
 float interval = 1.0f;
@@ -74,6 +81,16 @@ int version_size = 10;
 int float_size = 10;
 
 bool TCPReceived = false;
+/*https://bitbucket.org/hendrikwiersma/testingrepo/raw/206c9f89f47140f3bc340ea2bad7fdb8900884a3/README.md*/
+/*string server_list_address = "https://raw.githubusercontent.com/ogmp/resources/master/server_list.txt";*/
+string server_list_address = "pastebin.com";
+/*string server_list_address = "wolfire.com";*/
+
+string get_message = "GET /raw/vnxRMEk8 HTTP/1.1
+Host: pastebin.com\n\n";
+
+/*string get_message = "GET /overgrowth/featured.jpg HTTP/1.1
+Host: www.wolfire.com\n\n";*/
 
 array<RemotePlayer@> remote_players;
 
@@ -105,12 +122,32 @@ void Init(string p_level_name) {
 void IncomingTCPData(uint socket, array<uint8>@ data) {
 	Log(info, "Data in size " + data.length() );
     for( uint i = 0; i < data.length(); i++ ) {
-		/*Print(data[i] + " ");*/
 		data_collection.insertLast(data[i]);
-        Print(data[i] + " ");
+        /*Print(data[i] + " ");*/
     }
-	Print("\n");
-	PrintByteArray(data);
+	/*Print("\n");
+	PrintByteArray(data);*/
+	if(getting_server_list){
+		if(data.size() != 128){
+			ReadServerList();
+			DestroySocketTCP(socket);
+			socket = SOCKET_ID_INVALID;
+			getting_server_list = false;
+		}
+	}
+}
+
+void ReadServerList(){
+	string complete_get_request = "";
+	for( uint i = 0; i < data_collection.length() - 5; i++ ) {
+		string s('0');
+        s[0] = data_collection[i];
+        complete_get_request.insert(complete_get_request.length(), s);
+    }
+	int content_starts_at = 507;
+	string content = complete_get_request.substr(content_starts_at);
+	data_collection.resize(0);
+	Print("Server info: \n" + content);
 }
 
 void ProcessIncomingMessage(array<uint8>@ data){
@@ -284,6 +321,8 @@ void Update(int paused) {
     if(!post_init_run){
         player_id = GetPlayerCharacterID();
         post_init_run = true;
+		username = adjectives[rand() % adjectives.length()] + nouns[rand() % nouns.length()];
+		/*username = "Gyrth" + rand();*/
     }
 
     if(connected_to_server){
@@ -302,18 +341,26 @@ void Update(int paused) {
 	// process any messages produced from the update
     while( imGUI.getMessageQueueSize() > 0 ) {
         IMMessage@ message = imGUI.getNextMessage();
+		Log( info, "Got processMessage " + message.name );
 		if( message.name == "" ){return;}
-        //Log( info, "Got processMessage " + message.name );
+		else if( message.name == "connect" ){
+			Log(info, "Trying to connect to server");
+	        trying_to_connect = true;
+		}
+		
 	}
 	SeparateMessages();
 	if(GetInputPressed(0, "p")){
-		chat.AddMessage("Message" + rand(), "Server", false);
+		/*chat.AddMessage("Content" + rand(), "server", true);
+		chat.AddMessage("Content" + rand(), "Person", false);*/
+		/*chat.AddMessage("Content" + rand(), username, false);*/
+		GetServerList();
 	}
 	UpdateInput();
 }
 
 void SeparateMessages(){
-	if(data_collection.size() < 1){
+	if(data_collection.size() < 1 || getting_server_list){
 		return;
 	}
 	uint message_size = data_collection[0];
@@ -336,12 +383,58 @@ void SetWindowDimensions(int w, int h)
 
 void PreConnectedKeyChecks(){
     if(GetInputPressed(ReadCharacter(player_id).controller_id, "f12") && !trying_to_connect){
-        Log(info, "Trying to connect to server");
-        trying_to_connect = true;
+		if(cc_ui_added){
+			RemoveClientConnectUI();
+			level.Execute("has_gui = false;");
+			cc_ui_added = false;
+		}else{
+			AddClientConnectUI();
+			level.Execute("has_gui = true;");
+			cc_ui_added = true;
+		}
     }
 	else if(GetInputPressed(ReadCharacter(player_id).controller_id, "f5")){
 		
 	}
+}
+
+void AddClientConnectUI(){
+	vec2 menu_size(900, 500);
+	string white_background = "Textures/ui/menus/main/white_square.png";
+	vec4 background_color(0,0,0,0.5);
+	vec2 connect_button_size(200, 60);
+	
+	IMContainer menu_container(menu_size.x, menu_size.y);
+	IMDivider menu_divider("menu_divider", DOVertical);
+	menu_container.setElement(menu_divider);
+	
+	IMText username_label("Your username will be \"" + username + "\"", client_connect_font);
+	menu_divider.append(username_label);
+	
+	//Connect button
+	IMContainer button_container(connect_button_size.x, connect_button_size.y);
+	button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("connect"), "");
+	menu_divider.append(button_container);
+	
+	IMText connect_text("Connect", client_connect_font);
+	connect_text.setZOrdering(2);
+	button_container.setElement(connect_text);
+	
+	IMImage button_background(white_background);
+	button_background.setZOrdering(0);
+	button_background.setSize(connect_button_size);
+	button_background.setColor(vec4(0,0,0,0.75));
+	button_container.addFloatingElement(button_background, "button_background", vec2(0));
+	
+	IMImage background(white_background);
+	background.setColor(background_color);
+	background.setSize(menu_size);
+	menu_container.addFloatingElement(background, "background", vec2(0));
+	imGUI.getMain().setElement(menu_container);
+}
+
+void RemoveClientConnectUI(){
+	
 }
 
 void KeyChecks(){
@@ -372,6 +465,27 @@ void KeyChecks(){
 		if((permanent_health > 0) && (temp_health > 0)) {
 			SendLoadPosition();
 		}
+	}
+}
+
+void GetServerList(){
+	if( socket == SOCKET_ID_INVALID ) {
+		socket = CreateSocketTCP(server_list_address, 80);
+		if( socket != SOCKET_ID_INVALID ) {
+			getting_server_list = true;
+		} else {
+			Log( warning, "Unable to get server list!" );
+		}
+	}
+	if( !IsValidSocketTCP(socket) ){
+		Log(info, "Socket no longer valid");
+		socket = SOCKET_ID_INVALID;
+	} else{
+		Log( warning, "Sending data!" );
+		array<uint8> data = toByteArray(get_message);
+		/*data.insertLast(79);
+        data.insertLast('\n'[0]);*/
+        SocketTCPSend(socket,data);
 	}
 }
 
@@ -423,9 +537,7 @@ void SendSignOn(){
 	message.insertLast(SignOn);
 	MovementObject@ player = ReadCharacter(player_id);
 	vec3 position = player.position;
-	
-	username = "Gyrth" + rand();
-	
+		
 	addToByteArray(username, @message);
 	addToByteArray("Turner", @message);
 	addToByteArray(level_name, @message);
@@ -713,8 +825,9 @@ bool HasFocus(){
 class Chat{
 	IMDivider@ chat_divider;
 	IMDivider@ chat_input_divider;
+	IMDivider@ chat_query_divider;
 	IMText@ chat_message_label;
-	float chat_width = 1500.0f;
+	float chat_width = 1000.0f;
 	float chat_height = 50.0f;
 	int move_in_time = 250;
 	int fade_out_time = 2500;
@@ -725,6 +838,10 @@ class Chat{
 	int current_index = 0;
 	int cursor_offset = 0;
 	bool chat_input_shown = false;
+	vec4 own_message_color(0.0, 0.80, 0.50, 0.5);
+	vec4 other_message_color(0.0, 0.50, 0.80, 0.5);
+	vec4 server_message_color(1.0, 1.0, 1.0, 0.5);
+	IMPulseAlpha pulse_cursor(1.0f, 0.0f, 2.0f);
 	void Initialize(){
 		IMDivider whole_chat("whole_chat", DOVertical);
 		
@@ -738,33 +855,35 @@ class Chat{
 		/*chat_divider.setAlignment(CACenter, CATop);*/
 		imGUI.getFooter().setAlignment(CACenter, CATop);
 		
-		chat_divider.showBorder();
+		//chat_divider.showBorder();
 		imGUI.getFooter().setElement(whole_chat);
 	}
 	void AddMessage(string message_, string source_, bool notif_){
 		chat_divider.clear();
-		chat_messages.insertLast(ChatMessage(message_, source_, notif_));
+		vec4 background_color;
+		if(source_ == username){
+			background_color = own_message_color;
+		}else if(source_ == "server"){
+			background_color = server_message_color;
+		}else{
+			background_color = other_message_color;
+		}
+		Print("add from " + source_ + "\n" );
+		chat_messages.insertLast(ChatMessage(message_, source_, notif_, background_color));
 		DrawChat();
 	}
 	void DrawChat(){
 		for(uint i = 0; i < chat_messages.size(); i++){
-			DrawMessage(chat_messages[i].message, chat_messages[i].source, chat_messages[i].notif, i);
+			DrawMessage(chat_messages[i], i);
 		}
 		if(chat_messages.size() > num_chat_messages){
 			chat_messages.removeAt(0);
 		}
 	}
-	void DrawMessage(string message_, string source_, bool notif, uint index){
-		IMDivider message_divider("message_divider", DOHorizontal);
-		IMContainer message_container(chat_width, chat_height);
-		IMImage background(white_background);
-		
-		message_divider.setZOrdering(2);
-		background.setZOrdering(0);
-		
-		background.setSize(vec2(chat_width, chat_height));
-		background.setColor(vec4(0,0,0,0.55));
-		message_container.addFloatingElement(background, "background", vec2(0));
+	void DrawMessage(ChatMessage@ chat_message, uint index){
+		float left_offset = 25.0f;
+		float background_size_offset = 10.0f;
+		float source_width = 200.0f;
 		float move_distance = 0;
 		
 		if(index == (chat_messages.size() - 1) ){
@@ -772,44 +891,93 @@ class Chat{
 		}else if((chat_messages.size() - 1) == num_chat_messages){
 			move_distance = chat_height;
 		}
-		message_container.addUpdateBehavior(IMMoveIn ( move_in_time, vec2(0, move_distance), inSineTween ), "");
+		
+		IMDivider whole_divider("whole_divider", DOHorizontal);
+		whole_divider.addUpdateBehavior(IMMoveIn ( move_in_time, vec2(0, move_distance), inSineTween ), "");
+		
+		IMDivider message_divider("message_divider", DOHorizontal);
+		IMContainer message_container(chat_width, chat_height);
+		/*message_container.showBorder();*/
+		message_container.setAlignment(CALeft, CACenter);
+		IMImage background(white_background);
+		
+		FontSetup username_font = main_font;
+		username_font.color = chat_message.background_color;
+		username_font.color.a = 1.0f;
+		
+		message_divider.appendSpacer(left_offset);
+		message_divider.setZOrdering(2);
+		background.setZOrdering(0);
+		background.showBorder();
+		background.setBorderColor(vec4(0,0,0,0.25));
+		background.setBorderSize(1.0f);
+		background.setColor(chat_message.background_color);
+		message_container.addFloatingElement(background, "background", vec2(0.0f));
+		
 		message_container.setElement(message_divider);
-		if(notif){
-			IMText message_text(message_, main_font);
+		if(chat_message.notif){
+			IMText message_text(chat_message.message, main_font);
 			message_divider.append(message_text);
+			background.setSize(vec2(chat_width - background_size_offset, chat_height - background_size_offset));
 		}else{
-			IMText label_source(source_, main_font);
-			IMText label_text(" : " + message_, main_font);
-			message_divider.append(label_source);
+			IMDivider source_divider("source_divider", DOHorizontal);
+			IMContainer source_container(source_width, chat_height);
+			
+			source_container.setAlignment(CALeft, CACenter);
+			source_container.setElement(source_divider);
+			background.setSize(vec2(chat_width - source_width - background_size_offset, chat_height - background_size_offset));
+			message_container.setSizeX(chat_width - source_width);
+			
+			IMText label_source(chat_message.source, username_font);
+			IMText label_text(chat_message.message, main_font);
+			whole_divider.append(source_container);
+			source_divider.append(label_source);
 			message_divider.append(label_text);
 		}
-		chat_divider.append(message_container);
+		whole_divider.append(message_container);
+		chat_divider.append(whole_divider);
 	}
 	void AddChatInput(){
-		IMDivider new_chat_divider("new_chat_divider", DOHorizontal);
+		@chat_query_divider = IMDivider("new_chat_divider", DOHorizontal);
 		IMContainer new_chat_container(chat_width, chat_height);
 		IMImage background(white_background);
 		
-		new_chat_divider.setZOrdering(2);
+		chat_query_divider.setZOrdering(2);
 		background.setZOrdering(0);
 		
 		background.setSize(vec2(chat_width, chat_height));
 		background.setColor(vec4(0,0,0,0.55));
 		new_chat_container.addFloatingElement(background, "background", vec2(0));
 		new_chat_container.addUpdateBehavior(IMMoveIn ( move_in_time, vec2(0, chat_height), inSineTween ), "");
-		new_chat_container.setElement(new_chat_divider);
+		new_chat_container.setElement(chat_query_divider);
 		
-		@chat_message_label = IMText(new_chat_message, main_font);
-		IMText cursor("_", main_font);
+		FontSetup input_font = main_font;
+		input_font.color = vec4(1);
+		input_font.shadowed = true;
+		@chat_message_label = IMText(new_chat_message, input_font);
+		IMText cursor("_", input_font);
 		chat_message_label.setZOrdering(2);
 		cursor.setZOrdering(2);
-		float speed = 2.0f;
-		cursor.addUpdateBehavior(IMPulseAlpha(1.0f, 0.0f, speed), "");
-		new_chat_divider.append(chat_message_label);
-		new_chat_divider.append(cursor);
+		
+		cursor.addUpdateBehavior(pulse_cursor, "");
+		chat_query_divider.append(chat_message_label);
+		chat_query_divider.append(cursor);
 		chat_input_divider.append(new_chat_container);
 		initial_sequence_id = 0;
 		chat_input_shown = true;
+	}
+	void SetCurrentChatMessage(){
+		FontSetup input_font = main_font;
+		input_font.color = vec4(1);
+		input_font.shadowed = true;
+		
+		chat_query_divider.clear();
+		@chat_message_label = IMText("", input_font);
+		chat_query_divider.append(chat_message_label);
+		IMText cursor("_", input_font);
+		cursor.addUpdateBehavior(pulse_cursor, "");
+		chat_message_label.setText(new_chat_message);
+		chat_query_divider.append(cursor);
 	}
 	void RemoveChatInput(){
 		if(chat_input_shown){
@@ -826,8 +994,15 @@ class Chat{
 				if(possible_new_input != uint16(initial_sequence_id)){
 					uint32 keycode = inputs[inputs.size()-1].keycode;
 					initial_sequence_id = inputs[inputs.size()-1].s_id;
-					uint max_query_length = 20;
-						
+					uint max_query_length = 60;
+					bool get_upper_case = false;
+					
+					/*Print("keycode " + keycode + "\n");*/
+					
+					if(GetInputDown(ReadCharacter(player_id).controller_id, "shift")){
+						get_upper_case =true;
+					}
+					
 					array<int> ignore_keycodes = {27};
 					if(ignore_keycodes.find(keycode) != -1 || keycode > 500){
 						return;
@@ -840,7 +1015,7 @@ class Chat{
 							uint new_length = new_chat_message.length() - 1;
 							if(new_length >= 0 && new_length <= max_query_length){
 								new_chat_message.erase(new_chat_message.length() - cursor_offset - 1, 1);
-								chat_message_label.setText(new_chat_message);
+								SetCurrentChatMessage();
 								return;
 							}
 						}else{
@@ -852,17 +1027,20 @@ class Chat{
 						if(cursor_offset > 0){
 							new_chat_message.erase(new_chat_message.length() - cursor_offset, 1);
 							cursor_offset--;
-							chat_message_label.setText(new_chat_message);
+							SetCurrentChatMessage();
 						}
 						return;
 					}
-					if(new_chat_message.length() == 20){
+					if(new_chat_message.length() == max_query_length){
 						return;
+					}
+					if(get_upper_case){
+						keycode = ToUpperCase(keycode);
 					}
 					string new_character('0');
 					new_character[0] = keycode;
 					new_chat_message.insert(new_chat_message.length() - cursor_offset, new_character);
-					chat_message_label.setText(new_chat_message);
+					SetCurrentChatMessage();
 				}
 			}
 			if(GetInputPressed(0, "return")){
@@ -884,9 +1062,19 @@ class ChatMessage{
 	string source;
 	string message;
 	bool notif;
-	ChatMessage(string message_, string source_, bool notif_){
+	vec4 background_color;
+	ChatMessage(string message_, string source_, bool notif_, vec4 background_color_){
 		message = message_;
 		source = source_;
 		notif = notif_;
+		background_color = background_color_;
 	}
+}
+uint32 ToUpperCase(uint32 input){
+	uint32 return_value = input;
+	//Check if keycode is between a and z
+	if(input >= 97 || input <= 122){
+		return_value -= 32;
+	}
+	return return_value;
 }
