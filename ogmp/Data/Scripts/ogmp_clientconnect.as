@@ -14,6 +14,9 @@ string welcome_message = "";
 string character = "";
 FontSetup main_font("arial", 30 , vec4(0,0,0,0.75), false);
 FontSetup client_connect_font("arial", 50 , vec4(1,1,1,0.75), true);
+IMMouseOverPulseColor mouseover_fontcolor(vec4(1), vec4(1), 5.0f);
+string connected_icon = "UI/ClientConnect/images/connected.png";
+string disconnected_icon = "UI/ClientConnect/images/disconnected.png";
 
 string turner = "Data/Characters/ogmp/turner.xml";
 
@@ -81,6 +84,7 @@ int version_size = 10;
 int float_size = 10;
 
 bool TCPReceived = false;
+bool connected_icon_state = true;
 
 /*string get_message = "GET /overgrowth/featured.jpg HTTP/1.1
 Host: www.wolfire.com\n\n";*/
@@ -119,7 +123,9 @@ class RemotePlayer{
 void Init(string p_level_name) {
     level_name = p_level_name;
 	imGUI.setFooterHeight(350);
+	imGUI.setHeaderHeight(100);
 	imGUI.setup();
+	imGUI.getHeader().setAlignment(CALeft, CACenter);
 	/*@main_divider = IMDivider("main_divider", DOVertical);
 	imGUI.getFooter().setElement(main_divider);
     player_id = GetPlayerCharacterID();*/
@@ -233,6 +239,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		connected_to_server = true;
 		interval = 1.0 / refresh_rate;
 		Log(info, "interval: " + interval);
+		RemoveClientConnectUI();
 	}
 	else if(message_type == Message){
 		Log(info, "Incoming: " + "Message Command");
@@ -383,7 +390,7 @@ void DrawGUI() {
 void Update(int paused) {
 	imGUI.update();
 	server_retriever.Update();
-	
+	UpdateConnectedIcon();
 	if(start_adding_cc_ui && !server_retriever.checking_servers){
 		AddClientConnectUI();
 		start_adding_cc_ui = false;
@@ -430,6 +437,22 @@ void Update(int paused) {
 	UpdateInput();
 }
 
+void UpdateConnectedIcon(){
+	if(connected_icon_state && !connected_to_server){
+		Print("Adding icon\n");
+		IMImage icon(disconnected_icon);
+		icon.setSize(vec2(100, 100));
+		imGUI.getHeader().setElement(icon);
+		connected_icon_state = false;
+	}else if(!connected_icon_state && connected_to_server){
+		Print("Adding icon\n");
+		IMImage icon(connected_icon);
+		icon.setSize(vec2(100, 100));
+		imGUI.getHeader().setElement(icon);
+		connected_icon_state = true;
+	}
+}
+
 void SeparateMessages(){
 	if(data_collection.size() < 1){
 		return;
@@ -456,13 +479,11 @@ void PreConnectedKeyChecks(){
     if(GetInputPressed(ReadCharacter(player_id).controller_id, "f12") && !trying_to_connect){
 		if(cc_ui_added){
 			RemoveClientConnectUI();
-			level.Execute("has_gui = false;");
 			cc_ui_added = false;
 			server_retriever.server_index = 0;
 			server_retriever.online_servers.resize(0);
 		}else{
 			AddClientConnectUI();
-			level.Execute("has_gui = true;");
 			start_adding_cc_ui = true;
 			cc_ui_added = true;
 			server_retriever.checking_servers = true;
@@ -474,6 +495,7 @@ void PreConnectedKeyChecks(){
 }
 
 void AddClientConnectUI(){
+	level.Execute("has_gui = true;");
 	vec2 menu_size(1000, 500);
 	string white_background = "Textures/ui/menus/main/white_square.png";
 	vec4 background_color(0,0,0,0.5);
@@ -494,6 +516,7 @@ void AddClientConnectUI(){
 		menu_divider.append(button_container);
 		
 		IMText connect_text("Connect to " + server_retriever.online_servers[i].address + " latency: " + server_retriever.online_servers[i].latency, client_connect_font);
+		connect_text.addMouseOverBehavior(mouseover_fontcolor, "");
 		connect_text.setZOrdering(2);
 		button_container.setElement(connect_text);
 		
@@ -509,12 +532,13 @@ void AddClientConnectUI(){
 	background.setColor(background_color);
 	background.setSize(menu_size);
 	menu_container.addFloatingElement(background, "background", vec2(0));
-	imGUI.getMain().setSize(vec2(2560, 1440));
+	imGUI.getMain().setSize(vec2(2560, 1000));
 	/*imGUI.getMain().setAlignment(CACenter, CACenter);*/
 	imGUI.getMain().setElement(menu_container);
 }
 
 void RemoveClientConnectUI(){
+	level.Execute("has_gui = false;");
 	imGUI.getMain().clear();
 }
 
@@ -619,6 +643,7 @@ void SendSignOn(){
 }
 
 void SendChatMessage(string chat_message){
+	Print("Sendign chat message\n");
 	array<uint8> message;
 	message.insertLast(Message);
 	addToByteArray(username, @message);
