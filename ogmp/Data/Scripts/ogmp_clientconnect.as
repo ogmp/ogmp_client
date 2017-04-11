@@ -55,7 +55,7 @@ bool post_init_run = false;
 bool trying_to_connect = false;
 bool showing_playerlist = false;
 bool cc_ui_added = false;
-bool getting_server_list = false;
+bool start_adding_cc_ui = false;
 
 float update_timer = 0.0f;
 float interval = 1.0f;
@@ -81,22 +81,29 @@ int version_size = 10;
 int float_size = 10;
 
 bool TCPReceived = false;
-/*https://bitbucket.org/hendrikwiersma/testingrepo/raw/206c9f89f47140f3bc340ea2bad7fdb8900884a3/README.md*/
-/*string server_list_address = "https://raw.githubusercontent.com/ogmp/resources/master/server_list.txt";*/
-string server_list_address = "pastebin.com";
-/*string server_list_address = "wolfire.com";*/
-
-string get_message = "GET /raw/vnxRMEk8 HTTP/1.1
-Host: pastebin.com\n\n";
 
 /*string get_message = "GET /overgrowth/featured.jpg HTTP/1.1
 Host: www.wolfire.com\n\n";*/
 
 array<RemotePlayer@> remote_players;
-
 IMDivider@ main_divider;
-
 array<uint8>@ data_collection = {};
+ServerRetriever server_retriever;
+
+array<ServerInfo@> server_list = {	ServerInfo("127.0.0.1", 2000),
+									ServerInfo("127.0.0.1", 80),
+									ServerInfo("127.0.0.1", 1337),
+									ServerInfo("52.56.230.41", 80)};
+class ServerInfo{
+	string address;
+	int port;
+	bool valid = false;
+	double latency;
+	ServerInfo(string address_, int port_){
+		address = address_;
+		port = port_;
+	}
+}
 
 class RemotePlayer{
 	int object_id;
@@ -127,27 +134,84 @@ void IncomingTCPData(uint socket, array<uint8>@ data) {
     }
 	/*Print("\n");
 	PrintByteArray(data);*/
-	if(getting_server_list){
-		if(data.size() != 128){
-			ReadServerList();
-			DestroySocketTCP(socket);
-			socket = SOCKET_ID_INVALID;
-			getting_server_list = false;
+}
+
+class ServerRetriever{
+	bool checking_servers = false;
+	int max_connect_tries = 5;
+	int connect_tries = 0;
+	float connect_try_interval = 0.1f;
+	float timer = 0.0f;
+	int server_index = 0;
+	uint64 start_time;
+	array<ServerInfo@> online_servers;
+	void Update(){
+		if(checking_servers){
+			if(server_index >= int(server_list.size())){
+				checking_servers = false;
+				return;
+			}
+			timer += time_step;
+			//Every interval check for a connection
+			if(timer > connect_try_interval){
+				timer = 0.0f;
+				if( socket == SOCKET_ID_INVALID ) {
+		            Log( info, "Trying to connect" );
+					start_time = GetPerformanceCounter();
+					socket = CreateSocketTCP(server_list[server_index].address, server_list[server_index].port);
+		            if( socket != SOCKET_ID_INVALID ) {
+						Log( info, "Connected " + server_list[server_index].address + "!!!!");
+						server_list[server_index].latency = (GetPerformanceCounter() - start_time) * 1000.0 / GetPerformanceFrequency();
+						Print("Latency " + server_list[server_index].latency + " miliseconds\n");
+						
+						online_servers.insertLast(server_list[server_index]);
+						GetNextServer();
+		            } else {
+		                Log( warning, "Unable to connect");
+		            }
+		        }
+				if( !IsValidSocketTCP(socket) ){
+					Log(info, "invalid");
+					socket = SOCKET_ID_INVALID;
+				}else{
+					Log(info, "valid");
+					socket = SOCKET_ID_INVALID;
+				}
+				connect_tries++;
+				if(connect_tries == max_connect_tries){
+					connect_tries = 0;
+					GetNextServer();
+				}
+			}
+		}
+	}
+	void GetNextServer(){
+		server_index++;
+		if(server_index >= int(server_list.size())){
+			checking_servers = false;
 		}
 	}
 }
 
 void ReadServerList(){
-	string complete_get_request = "";
-	for( uint i = 0; i < data_collection.length() - 5; i++ ) {
-		string s('0');
-        s[0] = data_collection[i];
-        complete_get_request.insert(complete_get_request.length(), s);
-    }
-	int content_starts_at = 507;
-	string content = complete_get_request.substr(content_starts_at);
-	data_collection.resize(0);
-	Print("Server info: \n" + content);
+	for(uint i = 0; i < server_list.size(); i++){
+		if( socket == SOCKET_ID_INVALID ) {
+            Log( info, "Trying to connect" );
+			socket = CreateSocketTCP(server_list[i].address, server_list[i].port);
+            if( socket != SOCKET_ID_INVALID ) {
+                Log( info, "Connected " + server_list[i].address );
+            } else {
+                Log( warning, "Unable to connect" );
+            }
+        }
+		if( !IsValidSocketTCP(socket) ){
+			Log(info, "invalid");
+			socket = SOCKET_ID_INVALID;
+		}else{
+			Log(info, "valid");
+			socket = SOCKET_ID_INVALID;
+		}
+	}
 }
 
 void ProcessIncomingMessage(array<uint8>@ data){
@@ -318,6 +382,13 @@ void DrawGUI() {
 
 void Update(int paused) {
 	imGUI.update();
+	server_retriever.Update();
+	
+	if(start_adding_cc_ui && !server_retriever.checking_servers){
+		AddClientConnectUI();
+		start_adding_cc_ui = false;
+	}
+	
     if(!post_init_run){
         player_id = GetPlayerCharacterID();
         post_init_run = true;
@@ -354,13 +425,13 @@ void Update(int paused) {
 		/*chat.AddMessage("Content" + rand(), "server", true);
 		chat.AddMessage("Content" + rand(), "Person", false);*/
 		/*chat.AddMessage("Content" + rand(), username, false);*/
-		GetServerList();
+		ReadServerList();
 	}
 	UpdateInput();
 }
 
 void SeparateMessages(){
-	if(data_collection.size() < 1 || getting_server_list){
+	if(data_collection.size() < 1){
 		return;
 	}
 	uint message_size = data_collection[0];
@@ -387,10 +458,14 @@ void PreConnectedKeyChecks(){
 			RemoveClientConnectUI();
 			level.Execute("has_gui = false;");
 			cc_ui_added = false;
+			server_retriever.server_index = 0;
+			server_retriever.online_servers.resize(0);
 		}else{
 			AddClientConnectUI();
 			level.Execute("has_gui = true;");
+			start_adding_cc_ui = true;
 			cc_ui_added = true;
+			server_retriever.checking_servers = true;
 		}
     }
 	else if(GetInputPressed(ReadCharacter(player_id).controller_id, "f5")){
@@ -399,10 +474,11 @@ void PreConnectedKeyChecks(){
 }
 
 void AddClientConnectUI(){
-	vec2 menu_size(900, 500);
+	vec2 menu_size(1000, 500);
 	string white_background = "Textures/ui/menus/main/white_square.png";
 	vec4 background_color(0,0,0,0.5);
-	vec2 connect_button_size(200, 60);
+	vec2 connect_button_size(1000, 60);
+	float button_size_offset = 10.0f;
 	
 	IMContainer menu_container(menu_size.x, menu_size.y);
 	IMDivider menu_divider("menu_divider", DOVertical);
@@ -411,30 +487,35 @@ void AddClientConnectUI(){
 	IMText username_label("Your username will be \"" + username + "\"", client_connect_font);
 	menu_divider.append(username_label);
 	
-	//Connect button
-	IMContainer button_container(connect_button_size.x, connect_button_size.y);
-	button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("connect"), "");
-	menu_divider.append(button_container);
+	for(uint i = 0; i < server_retriever.online_servers.size(); i++){
+		//Connect button
+		IMContainer button_container(connect_button_size.x, connect_button_size.y);
+		button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("connect"), "");
+		menu_divider.append(button_container);
+		
+		IMText connect_text("Connect to " + server_retriever.online_servers[i].address + " latency: " + server_retriever.online_servers[i].latency, client_connect_font);
+		connect_text.setZOrdering(2);
+		button_container.setElement(connect_text);
+		
+		IMImage button_background(white_background);
+		button_background.setZOrdering(0);
+		button_background.setSize(connect_button_size - button_size_offset);
+		button_background.setColor(vec4(0,0,0,0.75));
+		button_container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
+	}
 	
-	IMText connect_text("Connect", client_connect_font);
-	connect_text.setZOrdering(2);
-	button_container.setElement(connect_text);
-	
-	IMImage button_background(white_background);
-	button_background.setZOrdering(0);
-	button_background.setSize(connect_button_size);
-	button_background.setColor(vec4(0,0,0,0.75));
-	button_container.addFloatingElement(button_background, "button_background", vec2(0));
-	
+	//The main background
 	IMImage background(white_background);
 	background.setColor(background_color);
 	background.setSize(menu_size);
 	menu_container.addFloatingElement(background, "background", vec2(0));
+	imGUI.getMain().setSize(vec2(2560, 1440));
+	/*imGUI.getMain().setAlignment(CACenter, CACenter);*/
 	imGUI.getMain().setElement(menu_container);
 }
 
 void RemoveClientConnectUI(){
-	
+	imGUI.getMain().clear();
 }
 
 void KeyChecks(){
@@ -465,27 +546,6 @@ void KeyChecks(){
 		if((permanent_health > 0) && (temp_health > 0)) {
 			SendLoadPosition();
 		}
-	}
-}
-
-void GetServerList(){
-	if( socket == SOCKET_ID_INVALID ) {
-		socket = CreateSocketTCP(server_list_address, 80);
-		if( socket != SOCKET_ID_INVALID ) {
-			getting_server_list = true;
-		} else {
-			Log( warning, "Unable to get server list!" );
-		}
-	}
-	if( !IsValidSocketTCP(socket) ){
-		Log(info, "Socket no longer valid");
-		socket = SOCKET_ID_INVALID;
-	} else{
-		Log( warning, "Sending data!" );
-		array<uint8> data = toByteArray(get_message);
-		/*data.insertLast(79);
-        data.insertLast('\n'[0]);*/
-        SocketTCPSend(socket,data);
 	}
 }
 
