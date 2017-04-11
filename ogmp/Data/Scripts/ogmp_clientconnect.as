@@ -1,5 +1,6 @@
 
 uint socket = SOCKET_ID_INVALID;
+uint main_socket = SOCKET_ID_INVALID;
 uint connect_try_countdown = 5;
 string level_name = "";
 int player_id = -1;
@@ -425,6 +426,7 @@ void Update(int paused) {
 		else if( message.name == "disconnect" ){
 			Log(info, "Received message to disconnect from server");
 	        DisconnectFromServer();
+			RemoveClientConnectUI();
 		}
 	}
 	SeparateMessages();
@@ -477,15 +479,14 @@ void SetWindowDimensions(int w, int h)
 
 void PreConnectedKeyChecks(){
     if(GetInputPressed(ReadCharacter(player_id).controller_id, "f12") && !trying_to_connect){
+		Print("pressed f12\n");
 		if(cc_ui_added){
 			RemoveClientConnectUI();
-			cc_ui_added = false;
 			server_retriever.server_index = 0;
 			server_retriever.online_servers.resize(0);
 		}else{
 			AddClientConnectUI();
 			start_adding_cc_ui = true;
-			cc_ui_added = true;
 			server_retriever.checking_servers = true;
 		}
     }
@@ -495,6 +496,7 @@ void PreConnectedKeyChecks(){
 }
 
 void AddClientConnectUI(){
+	cc_ui_added = true;
 	level.Execute("has_gui = true;");
 	vec2 menu_size(1000, 500);
 	string white_background = "Textures/ui/menus/main/white_square.png";
@@ -556,6 +558,7 @@ void AddClientConnectUI(){
 }
 
 void RemoveClientConnectUI(){
+	cc_ui_added = false;
 	level.Execute("has_gui = false;");
 	imGUI.getMain().clear();
 }
@@ -585,17 +588,30 @@ void KeyChecks(){
 		if((permanent_health > 0) && (temp_health > 0)) {
 			SendLoadPosition();
 		}
-	}
+	}else if(GetInputPressed(controller_id, "f12")){
+		Print("pressed f12\n");
+		if(cc_ui_added){
+			Print("removecleintconnect\n");
+			RemoveClientConnectUI();
+			server_retriever.server_index = 0;
+			server_retriever.online_servers.resize(0);
+		}else{
+			Print("addcleintconnect\n");
+			AddClientConnectUI();
+			start_adding_cc_ui = true;
+			server_retriever.checking_servers = true;
+		}
+    }
 }
 
 void ConnectToServer(){
     if(trying_to_connect){
-        if( socket == SOCKET_ID_INVALID ) {
+        if( main_socket == SOCKET_ID_INVALID ) {
             if( level_name != "") {
                 Log( info, "Trying to connect" );
-				socket = CreateSocketTCP(current_server.address, current_server.port);
-                if( socket != SOCKET_ID_INVALID ) {
-                    Log( info, "Connected " + socket );
+				main_socket = CreateSocketTCP(current_server.address, current_server.port);
+                if( main_socket != SOCKET_ID_INVALID ) {
+                    Log( info, "Connected " + main_socket );
 					trying_to_connect = false;
 					SendSignOn();
                 } else {
@@ -603,9 +619,9 @@ void ConnectToServer(){
                 }
             }
         }
-		if( !IsValidSocketTCP(socket) ){
+		if( !IsValidSocketTCP(main_socket) ){
 			Log(info, "Socket no longer valid");
-			socket = SOCKET_ID_INVALID;
+			main_socket = SOCKET_ID_INVALID;
 			connected_to_server = false;
 			trying_to_connect = false;
 		}
@@ -614,8 +630,8 @@ void ConnectToServer(){
 
 void DisconnectFromServer(){
 	Print("Destroying socket\n");
-	DestroySocketTCP(socket);
-	socket = SOCKET_ID_INVALID;
+	DestroySocketTCP(main_socket);
+	main_socket = SOCKET_ID_INVALID;
 	connected_to_server = false;
 }
 
@@ -893,16 +909,16 @@ void UpdateInput(){
 }
 
 void SendData(array<uint8> message){
-    if( IsValidSocketTCP(socket) )
+    if( IsValidSocketTCP(main_socket) )
     {
         /*Log(info, "Sending data" );
         Log(info, "Data size " + message.size() );*/
-        SocketTCPSend(socket,message);
+        SocketTCPSend(main_socket,message);
     }
     else
     {
 		Log(info, "Socket no longer valid");
-        socket = SOCKET_ID_INVALID;
+        main_socket = SOCKET_ID_INVALID;
 		connected_to_server = false;
 		trying_to_connect = false;
     }
