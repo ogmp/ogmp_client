@@ -14,6 +14,7 @@ string team = "";
 string welcome_message = "";
 string character = "";
 FontSetup main_font("arial", 30 , vec4(0,0,0,0.75), false);
+FontSetup error_font("arial", 40 , vec4(0.85,0,0,0.75), true);
 FontSetup client_connect_font("arial", 50 , vec4(1,1,1,0.75), true);
 IMMouseOverPulseColor mouseover_fontcolor(vec4(1), vec4(1), 5.0f);
 string connected_icon = "UI/ClientConnect/images/connected.png";
@@ -92,6 +93,7 @@ IMDivider@ main_divider;
 array<uint8>@ data_collection = {};
 ServerRetriever server_retriever;
 ServerInfo@ current_server;
+IMDivider@ error_divider;
 
 array<ServerInfo@> server_list = {	ServerInfo("127.0.0.1", 2000),
 									ServerInfo("127.0.0.1", 80),
@@ -337,7 +339,11 @@ void ProcessIncomingMessage(array<uint8>@ data){
 	}
 	else if (message_type == Error){
 		Log(info, "Incoming: " + "Error Command");
-		Print("Error message " + GetString(data, data_index) + "\n");
+		if(cc_ui_added){
+			error_divider.clear();
+			IMText error_message(GetString(data, data_index), error_font);
+			error_divider.append(error_message);
+		}
 	}
 	else{
 		//DisplayError("Unknown Message", "Unknown incomming message: " + message_type);
@@ -519,7 +525,7 @@ void AddClientConnectUI(){
 		
 		IMText connect_text("Connect to " + server_retriever.online_servers[i].address + " latency: " + server_retriever.online_servers[i].latency, client_connect_font);
 		connect_text.addMouseOverBehavior(mouseover_fontcolor, "");
-		connect_text.setZOrdering(2);
+		connect_text.setZOrdering(3);
 		button_container.setElement(connect_text);
 		
 		IMImage button_background(white_background);
@@ -537,7 +543,7 @@ void AddClientConnectUI(){
 		
 		IMText connect_text("Disconnect from server.", client_connect_font);
 		connect_text.addMouseOverBehavior(mouseover_fontcolor, "");
-		connect_text.setZOrdering(2);
+		connect_text.setZOrdering(3);
 		button_container.setElement(connect_text);
 		
 		IMImage button_background(white_background);
@@ -546,6 +552,10 @@ void AddClientConnectUI(){
 		button_background.setColor(vec4(0,0,0,0.75));
 		button_container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
 	}
+	
+	//The errors are put in this divider
+	@error_divider = IMDivider("error_divider", DOVertical);
+	menu_divider.append(error_divider);
 	
 	//The main background
 	IMImage background(white_background);
