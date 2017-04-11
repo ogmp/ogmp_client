@@ -86,13 +86,11 @@ int float_size = 10;
 bool TCPReceived = false;
 bool connected_icon_state = true;
 
-/*string get_message = "GET /overgrowth/featured.jpg HTTP/1.1
-Host: www.wolfire.com\n\n";*/
-
 array<RemotePlayer@> remote_players;
 IMDivider@ main_divider;
 array<uint8>@ data_collection = {};
 ServerRetriever server_retriever;
+ServerInfo@ current_server;
 
 array<ServerInfo@> server_list = {	ServerInfo("127.0.0.1", 2000),
 									ServerInfo("127.0.0.1", 80),
@@ -126,9 +124,6 @@ void Init(string p_level_name) {
 	imGUI.setHeaderHeight(100);
 	imGUI.setup();
 	imGUI.getHeader().setAlignment(CALeft, CACenter);
-	/*@main_divider = IMDivider("main_divider", DOVertical);
-	imGUI.getFooter().setElement(main_divider);
-    player_id = GetPlayerCharacterID();*/
 	chat.Initialize();
 }
 
@@ -423,9 +418,14 @@ void Update(int paused) {
 		if( message.name == "" ){return;}
 		else if( message.name == "connect" ){
 			Log(info, "Trying to connect to server");
+			int index = message.getInt(0);
+			@current_server = server_retriever.online_servers[index];
 	        trying_to_connect = true;
 		}
-		
+		else if( message.name == "disconnect" ){
+			Log(info, "Received message to disconnect from server");
+	        DisconnectFromServer();
+		}
 	}
 	SeparateMessages();
 	if(GetInputPressed(0, "p")){
@@ -512,10 +512,28 @@ void AddClientConnectUI(){
 	for(uint i = 0; i < server_retriever.online_servers.size(); i++){
 		//Connect button
 		IMContainer button_container(connect_button_size.x, connect_button_size.y);
-		button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("connect"), "");
+		button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("connect", i), "");
 		menu_divider.append(button_container);
 		
 		IMText connect_text("Connect to " + server_retriever.online_servers[i].address + " latency: " + server_retriever.online_servers[i].latency, client_connect_font);
+		connect_text.addMouseOverBehavior(mouseover_fontcolor, "");
+		connect_text.setZOrdering(2);
+		button_container.setElement(connect_text);
+		
+		IMImage button_background(white_background);
+		button_background.setZOrdering(0);
+		button_background.setSize(connect_button_size - button_size_offset);
+		button_background.setColor(vec4(0,0,0,0.75));
+		button_container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
+	}
+	
+	if(connected_to_server){
+		//Disconnect button
+		IMContainer button_container(connect_button_size.x, connect_button_size.y);
+		button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("disconnect"), "");
+		menu_divider.append(button_container);
+		
+		IMText connect_text("Disconnect from server.", client_connect_font);
 		connect_text.addMouseOverBehavior(mouseover_fontcolor, "");
 		connect_text.setZOrdering(2);
 		button_container.setElement(connect_text);
@@ -558,9 +576,6 @@ void KeyChecks(){
 		//TODO don't show playerlist anymore.
 		showing_playerlist = false;
 	}
-	else if(GetInputPressed(controller_id, "f12")) {
-		DisconnectFromServer();
-	}
 	else if(GetInputPressed(controller_id, "k")) {
 		if((permanent_health > 0) && (temp_health > 0)) {
 			SendSavePosition();
@@ -578,13 +593,13 @@ void ConnectToServer(){
         if( socket == SOCKET_ID_INVALID ) {
             if( level_name != "") {
                 Log( info, "Trying to connect" );
-				socket = CreateSocketTCP("127.0.0.1", 2000);
+				socket = CreateSocketTCP(current_server.address, current_server.port);
                 if( socket != SOCKET_ID_INVALID ) {
                     Log( info, "Connected " + socket );
 					trying_to_connect = false;
 					SendSignOn();
                 } else {
-                    Log( warning, "Unable to connect, will try again soon" );
+                    Log( warning, "Unable to connect" );
                 }
             }
         }
