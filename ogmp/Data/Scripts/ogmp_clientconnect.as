@@ -259,6 +259,8 @@ void ProcessIncomingMessage(array<uint8>@ data){
 	}
 	else if (message_type == RemoveCharacter){
 		Log(info, "Incoming: " + "RemoveCharacter Command");
+		string username = GetString(data, data_index);
+		RemoveRemotePlayer(username);
 	}
 	else if (message_type == UpdateGame){
 		Log(info, "Incoming: " + "Update Command");
@@ -345,8 +347,16 @@ void ProcessIncomingMessage(array<uint8>@ data){
 			error_divider.append(error_message);
 		}
 	}
+	else if(message_type == LoadPosition){
+		Log(info, "Incoming: " + "LoadPosition");
+		MovementObject@ player = ReadCharacter(player_id);
+		player.position.x = GetFloat(data, data_index);
+		player.position.y = GetFloat(data, data_index);
+		player.position.z = GetFloat(data, data_index);
+	}
 	else{
 		//DisplayError("Unknown Message", "Unknown incomming message: " + message_type);
+		PrintByteArray(data);
 	}
 }
 
@@ -368,6 +378,17 @@ void CreateRemotePlayer(string username, string team, string character, vec3 pos
 	ScriptParams@ params = object.GetScriptParams();
 	params.SetString("Teams", team);
 	remote_player.position = position;
+}
+
+void RemoveRemotePlayer(string username){
+	for(uint i = 0; i < remote_players.size(); i++){
+		MovementObject@ remote_player = ReadCharacterID(remote_players[i].object_id);
+		remote_player.Execute("situation.clear();");
+		if(remote_players[i].username == username){
+			DeleteObjectID(remote_players[i].object_id);
+			remote_players.removeAt(i);
+		}
+	}
 }
 
 void PrintByteArray(array<uint8> data){
@@ -646,15 +667,15 @@ void DisconnectFromServer(){
 }
 
 void SendSavePosition(){
-	JSON message;
-	message.getRoot()["type"] = JSONValue("SavePosition");
-	/*SendData(message.writeString(false));*/
+	array<uint8> message;
+	message.insertLast(SavePosition);
+	SendData(message);
 }
 
 void SendLoadPosition(){
-	JSON message;
-	message.getRoot()["type"] = JSONValue("LoadPosition");
-	/*SendData(message.writeString(false));*/
+	array<uint8> message;
+	message.insertLast(LoadPosition);
+	SendData(message);
 }
 
 void SendSignOn(){
