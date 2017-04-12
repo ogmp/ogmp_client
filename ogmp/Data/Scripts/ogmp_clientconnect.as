@@ -1085,6 +1085,11 @@ class Chat{
 		chat_divider.append(whole_divider);
 	}
 	void AddChatInput(){
+		MovementObject@ player = ReadCharacter(player_id);
+		player.velocity = vec3(0);
+		player.Execute("SetState(_ground_state);");
+		player.Execute("this_mo.SetAnimation(\"Data/Animations/r_actionidle.anm\", 20.0f);");
+		
 		@chat_query_divider = IMDivider("new_chat_divider", DOHorizontal);
 		IMContainer new_chat_container(chat_width, chat_height);
 		IMImage background(white_background);
@@ -1128,6 +1133,8 @@ class Chat{
 	}
 	void RemoveChatInput(){
 		if(chat_input_shown){
+			MovementObject@ player = ReadCharacter(player_id);
+			player.Execute("SetState(_movement_state);");
 			chat_input_divider.clear();
 			new_chat_message = "";
 			chat_input_shown = false;
