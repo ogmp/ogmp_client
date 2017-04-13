@@ -78,6 +78,7 @@ uint8 SavePosition = 7;
 uint8 LoadPosition = 8;
 uint8 UpdateCharacter = 9;
 uint8 Error = 10;
+uint8 ServerInfo = 11;
 
 int username_size = 10;
 int character_size = 10;
@@ -92,19 +93,19 @@ array<RemotePlayer@> remote_players;
 IMDivider@ main_divider;
 array<uint8>@ data_collection = {};
 ServerRetriever server_retriever;
-ServerInfo@ current_server;
+ServerConnectionInfo@ current_server;
 IMDivider@ error_divider;
 
-array<ServerInfo@> server_list = {	ServerInfo("127.0.0.1", 2000),
-									ServerInfo("127.0.0.1", 80),
-									ServerInfo("127.0.0.1", 1337),
-									ServerInfo("52.56.230.41", 80)};
-class ServerInfo{
+array<ServerConnectionInfo@> server_list = {	ServerConnectionInfo("127.0.0.1", 2000),
+												ServerConnectionInfo("127.0.0.1", 80),
+												ServerConnectionInfo("127.0.0.1", 1337),
+												ServerConnectionInfo("52.56.230.41", 80)};
+class ServerConnectionInfo{
 	string address;
 	int port;
 	bool valid = false;
 	double latency;
-	ServerInfo(string address_, int port_){
+	ServerConnectionInfo(string address_, int port_){
 		address = address_;
 		port = port_;
 	}
@@ -148,7 +149,7 @@ class ServerRetriever{
 	float timer = 0.0f;
 	int server_index = 0;
 	uint64 start_time;
-	array<ServerInfo@> online_servers;
+	array<ServerConnectionInfo@> online_servers;
 	void Update(){
 		if(checking_servers){
 			if(server_index >= int(server_list.size())){
@@ -354,6 +355,14 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		player.position.y = GetFloat(data, data_index);
 		player.position.z = GetFloat(data, data_index);
 	}
+	else if(message_type == ServerInfo){
+		Log(info, "Incoming: " + "ServerInfo");
+		string server_name = GetString(data, data_index);
+		int nr_players = GetInt(data, data_index);
+		Log(info, "Server name: " + server_name);
+		Log(info, "Number of players: " + nr_players);
+		
+	}
 	else{
 		//DisplayError("Unknown Message", "Unknown incomming message: " + message_type);
 		PrintByteArray(data);
@@ -461,7 +470,9 @@ void Update(int paused) {
 		/*chat.AddMessage("Content" + rand(), "server", true);
 		chat.AddMessage("Content" + rand(), "Person", false);*/
 		/*chat.AddMessage("Content" + rand(), username, false);*/
-		ReadServerList();
+		/*ReadServerList();*/
+		array<uint8> new_data = {ServerInfo};
+		SendData(new_data);
 	}
 	UpdateInput();
 }
