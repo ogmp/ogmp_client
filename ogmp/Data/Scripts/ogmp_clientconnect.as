@@ -531,7 +531,9 @@ void AddClientConnectUI(){
 	IMContainer username_container(connect_button_size.x / 2.0f, connect_button_size.y);
 	username_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("activate_search"), "");
 	IMDivider username_divider("username_divider", DOHorizontal);
+	IMContainer username_parent_container(connect_button_size.x / 2.0f, connect_button_size.y);
 	IMDivider username_parent("username_parent", DOHorizontal);
+	username_parent_container.setElement(username_parent);
 	username_container.setElement(username_divider);
 	
 	IMText description_label("Username: ", client_connect_font);
@@ -543,13 +545,13 @@ void AddClientConnectUI(){
 	IMText username_label(username, client_connect_font);
 	username_label.setZOrdering(3);
 	username_parent.append(username_label);
-	username_divider.append(username_parent);
+	username_divider.append(username_parent_container);
 	
 	IMImage username_background(white_background);
 	username_background.setZOrdering(0);
 	username_background.setSize(connect_button_size - button_size_offset);
 	username_background.setColor(vec4(0,0,0,0.75));
-	username_container.addFloatingElement(username_background, "username_background", vec2(button_size_offset / 2.0f));
+	username_parent_container.addFloatingElement(username_background, "username_background", vec2(button_size_offset / 2.0f));
 	
 	username_field.SetInputField(@username_label, @username_parent);
 	

@@ -143,11 +143,6 @@ class Inputfield {
 	Inputfield(){
 		
 	}
-	void ResetSearch(){
-		query = "";
-		active = false;
-		pressed_return = false;
-	}
 	void Activate(){
 		if(active){return;}
 		
@@ -158,6 +153,7 @@ class Inputfield {
 		
 		query = "";
 		active = true;
+		pressed_return = false;
 		array<KeyboardPress> inputs = GetRawKeyboardInputs();
 		if(inputs.size() > 0){
 			initial_sequence_id = inputs[inputs.size()-1].s_id;
@@ -327,8 +323,6 @@ class Inputfield {
 					string new_character('0');
 					new_character[0] = keycode;
 					query.insert(query.length() - cursor_offset, new_character);
-					
-					active = true;
 					SetCurrentSearchQuery();
 				}
 			}
