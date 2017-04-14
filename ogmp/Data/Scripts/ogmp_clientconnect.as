@@ -65,7 +65,7 @@ ServerConnectionInfo@ current_server;
 IMDivider@ error_divider;
 
 void Init(string p_level_name) {
-    level_name = p_level_name;
+    level_name = GetCurrLevel();
 	imGUI.setFooterHeight(350);
 	imGUI.setHeaderHeight(100);
 	imGUI.setup();
@@ -524,6 +524,12 @@ void AddClientConnectUI(){
 		button_background.setColor(vec4(0,0,0,0.75));
 		button_container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
 	}
+	menu_divider.appendSpacer(10);
+	
+	//The errors are put in this divider
+	@error_divider = IMDivider("error_divider", DOVertical);
+	menu_divider.append(error_divider);
+	
 	//A bit of extra space between the server labels and username input.
 	menu_divider.appendSpacer(100);
 	
@@ -556,10 +562,6 @@ void AddClientConnectUI(){
 	username_field.SetInputField(@username_label, @username_parent);
 	
 	menu_divider.append(username_container);
-	
-	//The errors are put in this divider
-	@error_divider = IMDivider("error_divider", DOVertical);
-	menu_divider.append(error_divider);
 	
 	//The main background
 	IMImage background(white_background);
