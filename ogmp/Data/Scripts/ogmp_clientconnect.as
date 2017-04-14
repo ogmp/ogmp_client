@@ -1,6 +1,5 @@
+#include "ogmp_common.as"
 
-uint socket = SOCKET_ID_INVALID;
-uint main_socket = SOCKET_ID_INVALID;
 uint connect_try_countdown = 5;
 string level_name = "";
 int player_id = -1;
@@ -9,21 +8,12 @@ IMGUI imGUI;
 
 Chat chat;
 
+Inputfield username_field;
+
 string username = "";
 string team = "";
 string welcome_message = "";
 string character = "";
-FontSetup main_font("arial", 30 , vec4(0,0,0,0.75), false);
-FontSetup error_font("arial", 40 , vec4(0.85,0,0,0.75), true);
-FontSetup client_connect_font("arial", 50 , vec4(1,1,1,0.75), true);
-IMMouseOverPulseColor mouseover_fontcolor(vec4(1), vec4(1), 5.0f);
-string connected_icon = "UI/ClientConnect/images/connected.png";
-string disconnected_icon = "UI/ClientConnect/images/disconnected.png";
-
-string turner = "Data/Characters/ogmp/turner.xml";
-
-array<string> adjectives = {"Little", "Old", "Bad", "Brave", "Handsome", "Quaint", "Prickly", "Nervous", "Jolly", "Gigantic", "Itchy", "Thoughtless", "Crooked", "Hissing", "Slow", "Flaky", "Damaged"};
-array<string> nouns = {"Cat", "Walnut", "Bird", "Cookie", "Aardvark", "Boy", "Dame", "Kitty", "Person", "Cow", "Dragon", "Investor", "Cook", "Frenchman", "Priest", "Tiger", "Zebra", "Raven", "David"};
 
 int ragdoll_counter = 0;
 float dir_x = 0.0f;
@@ -54,7 +44,6 @@ int blood_delay = 0;
 bool cut_throat = false;
 int state = 0;
 
-
 bool connected_to_server = false;
 bool post_init_run = false;
 bool trying_to_connect = false;
@@ -66,61 +55,14 @@ float update_timer = 0.0f;
 float interval = 1.0f;
 int refresh_rate = 30;
 
-//Message types 
-uint8 SignOn = 0;
-uint8 Message = 1;
-uint8 TimeOut = 2;
-uint8 SpawnCharacter = 3;
-uint8 RemoveCharacter = 4;
-uint8 UpdateGame = 5;
-uint8 UpdateSelf = 6;
-uint8 SavePosition = 7;
-uint8 LoadPosition = 8;
-uint8 UpdateCharacter = 9;
-uint8 Error = 10;
-uint8 ServerInfo = 11;
-
-int username_size = 10;
-int character_size = 10;
-int level_size = 10;
-int version_size = 10;
-int float_size = 10;
-
 bool TCPReceived = false;
 bool connected_icon_state = true;
 
 array<RemotePlayer@> remote_players;
 IMDivider@ main_divider;
 array<uint8>@ data_collection = {};
-ServerRetriever server_retriever;
 ServerConnectionInfo@ current_server;
 IMDivider@ error_divider;
-
-array<ServerConnectionInfo@> server_list = {	ServerConnectionInfo("127.0.0.1", 2000),
-												ServerConnectionInfo("127.0.0.1", 80),
-												ServerConnectionInfo("127.0.0.1", 1337),
-												ServerConnectionInfo("52.56.230.41", 80)};
-class ServerConnectionInfo{
-	string address;
-	int port;
-	bool valid = false;
-	double latency;
-	ServerConnectionInfo(string address_, int port_){
-		address = address_;
-		port = port_;
-	}
-}
-
-class RemotePlayer{
-	int object_id;
-	string username;
-	string team;
-	RemotePlayer(string username_, string team_, int object_id_){
-		username = username_;
-		team = team_;
-		object_id = object_id_;
-	}
-}
 
 void Init(string p_level_name) {
     level_name = p_level_name;
@@ -132,6 +74,9 @@ void Init(string p_level_name) {
 }
 
 void IncomingTCPData(uint socket, array<uint8>@ data) {
+	if(socket == retriever_socket){
+		Log(info, "Some sata came in from the retriever socket");
+	}
 	Log(info, "Data in size " + data.length() );
     for( uint i = 0; i < data.length(); i++ ) {
 		data_collection.insertLast(data[i]);
@@ -141,80 +86,23 @@ void IncomingTCPData(uint socket, array<uint8>@ data) {
 	PrintByteArray(data);*/
 }
 
-class ServerRetriever{
-	bool checking_servers = false;
-	int max_connect_tries = 5;
-	int connect_tries = 0;
-	float connect_try_interval = 0.1f;
-	float timer = 0.0f;
-	int server_index = 0;
-	uint64 start_time;
-	array<ServerConnectionInfo@> online_servers;
-	void Update(){
-		if(checking_servers){
-			if(server_index >= int(server_list.size())){
-				checking_servers = false;
-				return;
-			}
-			timer += time_step;
-			//Every interval check for a connection
-			if(timer > connect_try_interval){
-				timer = 0.0f;
-				if( socket == SOCKET_ID_INVALID ) {
-		            Log( info, "Trying to connect" );
-					start_time = GetPerformanceCounter();
-					socket = CreateSocketTCP(server_list[server_index].address, server_list[server_index].port);
-		            if( socket != SOCKET_ID_INVALID ) {
-						Log( info, "Connected " + server_list[server_index].address + "!!!!");
-						server_list[server_index].latency = (GetPerformanceCounter() - start_time) * 1000.0 / GetPerformanceFrequency();
-						Print("Latency " + server_list[server_index].latency + " miliseconds\n");
-						
-						online_servers.insertLast(server_list[server_index]);
-						GetNextServer();
-		            } else {
-		                Log( warning, "Unable to connect");
-		            }
-		        }
-				if( !IsValidSocketTCP(socket) ){
-					Log(info, "invalid");
-					socket = SOCKET_ID_INVALID;
-				}else{
-					Log(info, "valid");
-					socket = SOCKET_ID_INVALID;
-				}
-				connect_tries++;
-				if(connect_tries == max_connect_tries){
-					connect_tries = 0;
-					GetNextServer();
-				}
-			}
-		}
-	}
-	void GetNextServer(){
-		server_index++;
-		if(server_index >= int(server_list.size())){
-			checking_servers = false;
-		}
-	}
-}
-
 void ReadServerList(){
 	for(uint i = 0; i < server_list.size(); i++){
-		if( socket == SOCKET_ID_INVALID ) {
+		if( retriever_socket == SOCKET_ID_INVALID ) {
             Log( info, "Trying to connect" );
-			socket = CreateSocketTCP(server_list[i].address, server_list[i].port);
-            if( socket != SOCKET_ID_INVALID ) {
+			retriever_socket = CreateSocketTCP(server_list[i].address, server_list[i].port);
+            if( retriever_socket != SOCKET_ID_INVALID ) {
                 Log( info, "Connected " + server_list[i].address );
             } else {
                 Log( warning, "Unable to connect" );
             }
         }
-		if( !IsValidSocketTCP(socket) ){
+		if( !IsValidSocketTCP(retriever_socket) ){
 			Log(info, "invalid");
-			socket = SOCKET_ID_INVALID;
+			retriever_socket = SOCKET_ID_INVALID;
 		}else{
 			Log(info, "valid");
-			socket = SOCKET_ID_INVALID;
+			retriever_socket = SOCKET_ID_INVALID;
 		}
 	}
 }
@@ -361,7 +249,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		int nr_players = GetInt(data, data_index);
 		Log(info, "Server name: " + server_name);
 		Log(info, "Number of players: " + nr_players);
-		
+		server_retriever.SetServerInfo(server_name, nr_players);
 	}
 	else{
 		//DisplayError("Unknown Message", "Unknown incomming message: " + message_type);
@@ -423,6 +311,7 @@ void Update(int paused) {
 	imGUI.update();
 	server_retriever.Update();
 	UpdateConnectedIcon();
+	username_field.Update();
 	if(start_adding_cc_ui && !server_retriever.checking_servers){
 		AddClientConnectUI();
 		start_adding_cc_ui = false;
@@ -463,6 +352,9 @@ void Update(int paused) {
 			Log(info, "Received message to disconnect from server");
 	        DisconnectFromServer();
 			RemoveClientConnectUI();
+		}
+		else if( message.name == "activate_search" ){
+			username_field.Activate();
 		}
 	}
 	SeparateMessages();
@@ -537,28 +429,76 @@ void AddClientConnectUI(){
 	cc_ui_added = true;
 	level.Execute("has_gui = true;");
 	vec2 menu_size(1000, 500);
-	string white_background = "Textures/ui/menus/main/white_square.png";
 	vec4 background_color(0,0,0,0.5);
 	vec2 connect_button_size(1000, 60);
 	float button_size_offset = 10.0f;
+	int server_name_width = 500;
+	int latency_width = 200;
+	int nr_players_width = 200;
 	
 	IMContainer menu_container(menu_size.x, menu_size.y);
+	menu_container.setAlignment(CACenter, CATop);
 	IMDivider menu_divider("menu_divider", DOVertical);
 	menu_container.setElement(menu_divider);
 	
-	IMText username_label("Your username will be \"" + username + "\"", client_connect_font);
-	menu_divider.append(username_label);
+	//Server browser titlebar
+	IMContainer titlebar_container(connect_button_size.x, connect_button_size.y);
+	menu_divider.append(titlebar_container);
+	IMDivider titlebar_divider("titlebar_divider", DOHorizontal);
+	titlebar_divider.setZOrdering(3);
+	titlebar_container.setElement(titlebar_divider);
+	
+	IMContainer servername_label_container(server_name_width);
+	IMText servername_label("Server name", client_connect_font);
+	servername_label.setZOrdering(3);
+	servername_label_container.setElement(servername_label);
+	titlebar_divider.append(servername_label_container);
+	
+	IMContainer latency_label_container(latency_width);
+	IMText latency_label("Latency", client_connect_font);
+	latency_label.setZOrdering(3);
+	latency_label_container.setElement(latency_label);
+	titlebar_divider.append(latency_label_container);
+	
+	IMContainer nr_players_label_container(nr_players_width);
+	IMText nr_players_label("Nr players", client_connect_font);
+	nr_players_label.setZOrdering(3);
+	nr_players_label_container.setElement(nr_players_label);
+	titlebar_divider.append(nr_players_label_container);
 	
 	for(uint i = 0; i < server_retriever.online_servers.size(); i++){
 		//Connect button
 		IMContainer button_container(connect_button_size.x, connect_button_size.y);
+		button_container.sendMouseOverToChildren(true);
+		IMDivider button_divider("button_divider", DOHorizontal);
+		button_container.setElement(button_divider);
+		
 		button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("connect", i), "");
 		menu_divider.append(button_container);
 		
-		IMText connect_text("Connect to " + server_retriever.online_servers[i].address + " latency: " + server_retriever.online_servers[i].latency, client_connect_font);
-		connect_text.addMouseOverBehavior(mouseover_fontcolor, "");
-		connect_text.setZOrdering(3);
-		button_container.setElement(connect_text);
+		//The server name
+		IMContainer servername_container(server_name_width);
+		IMText server_name(server_retriever.online_servers[i].server_name, client_connect_font_small);
+		server_name.setZOrdering(3);
+		server_name.addMouseOverBehavior(mouseover_fontcolor, "");
+		servername_container.setElement(server_name);
+		button_divider.append(servername_container);
+		
+		//The latency
+		IMContainer latency_container(latency_width);
+		IMText latency(server_retriever.online_servers[i].latency + " ms", client_connect_font_small);
+		latency.setZOrdering(3);
+		latency.addMouseOverBehavior(mouseover_fontcolor, "");
+		latency_container.setElement(latency);
+		button_divider.append(latency_container);
+		
+		//The number of players
+		IMContainer nr_players_container(nr_players_width);
+		IMText nr_players(server_retriever.online_servers[i].nr_players + "", client_connect_font_small);
+		nr_players.setZOrdering(3);
+		nr_players.addMouseOverBehavior(mouseover_fontcolor, "");
+		nr_players_container.setElement(nr_players);
+		button_divider.append(nr_players_container);
 		
 		IMImage button_background(white_background);
 		button_background.setZOrdering(0);
@@ -584,6 +524,36 @@ void AddClientConnectUI(){
 		button_background.setColor(vec4(0,0,0,0.75));
 		button_container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
 	}
+	//A bit of extra space between the server labels and username input.
+	menu_divider.appendSpacer(100);
+	
+	//Username input field.
+	IMContainer username_container(connect_button_size.x / 2.0f, connect_button_size.y);
+	username_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("activate_search"), "");
+	IMDivider username_divider("username_divider", DOHorizontal);
+	IMDivider username_parent("username_parent", DOHorizontal);
+	username_container.setElement(username_divider);
+	
+	IMText description_label("Username: ", client_connect_font);
+	description_label.setZOrdering(3);
+	username_divider.append(description_label);
+	
+	username_divider.appendSpacer(25);
+	
+	IMText username_label(username, client_connect_font);
+	username_label.setZOrdering(3);
+	username_parent.append(username_label);
+	username_divider.append(username_parent);
+	
+	IMImage username_background(white_background);
+	username_background.setZOrdering(0);
+	username_background.setSize(connect_button_size - button_size_offset);
+	username_background.setColor(vec4(0,0,0,0.75));
+	username_container.addFloatingElement(username_background, "username_background", vec2(button_size_offset / 2.0f));
+	
+	username_field.SetInputField(@username_label, @username_parent);
+	
+	menu_divider.append(username_container);
 	
 	//The errors are put in this divider
 	@error_divider = IMDivider("error_divider", DOVertical);
@@ -1152,73 +1122,75 @@ class Chat{
 		}
 	}
 	void Update(){
-		if(chat_input_shown){
-			array<KeyboardPress> inputs = GetRawKeyboardInputs();
-			if(inputs.size() > 0){
-				uint16 possible_new_input = inputs[inputs.size()-1].s_id;
-				if(possible_new_input != uint16(initial_sequence_id)){
-					uint32 keycode = inputs[inputs.size()-1].keycode;
-					initial_sequence_id = inputs[inputs.size()-1].s_id;
-					uint max_query_length = 60;
-					bool get_upper_case = false;
-					
-					/*Print("keycode " + keycode + "\n");*/
-					
-					if(GetInputDown(ReadCharacter(player_id).controller_id, "shift")){
-						get_upper_case =true;
-					}
-					
-					array<int> ignore_keycodes = {27};
-					if(ignore_keycodes.find(keycode) != -1 || keycode > 500){
-						return;
-					}
-					
-					//Backspace
-					if(keycode == 8){
-						//Check if there are enough chars to delete the last one.
-						if(new_chat_message.length() - cursor_offset > 0){
-							uint new_length = new_chat_message.length() - 1;
-							if(new_length >= 0 && new_length <= max_query_length){
-								new_chat_message.erase(new_chat_message.length() - cursor_offset - 1, 1);
-								SetCurrentChatMessage();
-								return;
-							}
-						}else{
+		if(!cc_ui_added){
+			if(chat_input_shown){
+				array<KeyboardPress> inputs = GetRawKeyboardInputs();
+				if(inputs.size() > 0){
+					uint16 possible_new_input = inputs[inputs.size()-1].s_id;
+					if(possible_new_input != uint16(initial_sequence_id)){
+						uint32 keycode = inputs[inputs.size()-1].keycode;
+						initial_sequence_id = inputs[inputs.size()-1].s_id;
+						uint max_query_length = 60;
+						bool get_upper_case = false;
+						
+						/*Print("keycode " + keycode + "\n");*/
+						
+						if(GetInputDown(ReadCharacter(player_id).controller_id, "shift")){
+							get_upper_case =true;
+						}
+						
+						array<int> ignore_keycodes = {27};
+						if(ignore_keycodes.find(keycode) != -1 || keycode > 500){
 							return;
 						}
-					}
-					//Delete pressed
-					else if(keycode == 127){
-						if(cursor_offset > 0){
-							new_chat_message.erase(new_chat_message.length() - cursor_offset, 1);
-							cursor_offset--;
-							SetCurrentChatMessage();
+						
+						//Backspace
+						if(keycode == 8){
+							//Check if there are enough chars to delete the last one.
+							if(new_chat_message.length() - cursor_offset > 0){
+								uint new_length = new_chat_message.length() - 1;
+								if(new_length >= 0 && new_length <= max_query_length){
+									new_chat_message.erase(new_chat_message.length() - cursor_offset - 1, 1);
+									SetCurrentChatMessage();
+									return;
+								}
+							}else{
+								return;
+							}
 						}
-						return;
+						//Delete pressed
+						else if(keycode == 127){
+							if(cursor_offset > 0){
+								new_chat_message.erase(new_chat_message.length() - cursor_offset, 1);
+								cursor_offset--;
+								SetCurrentChatMessage();
+							}
+							return;
+						}
+						if(new_chat_message.length() == max_query_length){
+							return;
+						}
+						if(get_upper_case){
+							keycode = ToUpperCase(keycode);
+						}
+						string new_character('0');
+						new_character[0] = keycode;
+						new_chat_message.insert(new_chat_message.length() - cursor_offset, new_character);
+						SetCurrentChatMessage();
 					}
-					if(new_chat_message.length() == max_query_length){
-						return;
-					}
-					if(get_upper_case){
-						keycode = ToUpperCase(keycode);
-					}
-					string new_character('0');
-					new_character[0] = keycode;
-					new_chat_message.insert(new_chat_message.length() - cursor_offset, new_character);
-					SetCurrentChatMessage();
 				}
-			}
-			if(GetInputPressed(0, "return")){
-				if(new_chat_message.length() > 0){
-					SendChatMessage(new_chat_message);
+				if(GetInputPressed(0, "return")){
+					if(new_chat_message.length() > 0){
+						SendChatMessage(new_chat_message);
+					}
+					current_index = 0;
+					cursor_offset = 0;
+					RemoveChatInput();
 				}
-				current_index = 0;
-				cursor_offset = 0;
-				RemoveChatInput();
-			}
-		}else{
-			if(GetInputPressed(0, "return")){
-				AddChatInput();
+			}else{
+				if(GetInputPressed(0, "return")){
+					AddChatInput();
+				}
 			}
 		}
 	}
@@ -1234,12 +1206,4 @@ class ChatMessage{
 		notif = notif_;
 		background_color = background_color_;
 	}
-}
-uint32 ToUpperCase(uint32 input){
-	uint32 return_value = input;
-	//Check if keycode is between a and z
-	if(input >= 97 || input <= 122){
-		return_value -= 32;
-	}
-	return return_value;
 }
