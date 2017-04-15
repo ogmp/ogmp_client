@@ -5,10 +5,17 @@ string level_name = "";
 int player_id = -1;
 int initial_sequence_id;
 IMGUI imGUI;
-
 Chat chat;
-
 Inputfield username_field;
+
+enum ClientUIState {
+	UsernameUI = 0,
+	ServerListUI = 1,
+	LevelListUI = 2,
+	PlayerListUI = 3
+}
+
+ClientUIState currentUIState = ServerListUI;
 
 string username = "";
 string team = "";
@@ -56,7 +63,7 @@ float interval = 1.0f;
 int refresh_rate = 30;
 
 bool TCPReceived = false;
-bool connected_icon_state = true;
+bool connected_icon_state = false;
 
 array<RemotePlayer@> remote_players;
 IMDivider@ main_divider;
@@ -126,7 +133,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		connected_to_server = true;
 		interval = 1.0 / refresh_rate;
 		Log(info, "interval: " + interval);
-		RemoveClientConnectUI();
+		RemoveUI();
 	}
 	else if(message_type == Message){
 		Log(info, "Incoming: " + "Message Command");
@@ -251,6 +258,18 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		Log(info, "Number of players: " + nr_players);
 		server_retriever.SetServerInfo(server_name, nr_players);
 	}
+	else if(message_type == LevelList){
+		Log(info, "Incoming: " + "LevelList");
+		array<LevelInfo@> levels;
+		while(data_index < int(data.size() - 1)){
+			string level_name = GetString(data, data_index);
+			string level_path = GetString(data, data_index);
+			int nr_players = GetInt(data, data_index);
+			Log(info, "name " + level_name + " path " + level_path + " nr_p " + nr_players);
+			levels.insertLast(LevelInfo(level_name, level_path, nr_players));
+		}
+		server_retriever.SetLevelList(levels);
+	}
 	else{
 		//DisplayError("Unknown Message", "Unknown incomming message: " + message_type);
 		PrintByteArray(data);
@@ -307,21 +326,412 @@ void DrawGUI() {
 	imGUI.render();
 }
 
+void AddUI(){
+	Print("AddUI\n");
+	switch(currentUIState){
+		case UsernameUI:
+			AddUsernameUI();
+			break;
+		case ServerListUI:
+			AddServerListUI();
+			break;
+		case LevelListUI:
+			AddLevelListUI();
+			break;
+		case PlayerListUI:
+			AddPlayerListUI();
+			break;
+		default:
+			DisplayError("UIState", "The UIState is invalid!");
+			break;
+	}
+}
+
+void RemoveUI(){
+	Print("RemoveUI\n");
+	cc_ui_added = false;
+	level.Execute("has_gui = false;");
+	imGUI.getMain().clear();
+}
+
+void RefreshUI(){
+	Print("RefreshUI\n");
+	RemoveUI();
+	AddUI();
+}
+
+void AddUsernameUI(){
+	cc_ui_added = true;
+	level.Execute("has_gui = true;");
+	vec2 menu_size(1000, 500);
+	vec4 background_color(0,0,0,0.5);
+	vec2 button_size(1000, 60);
+	float button_size_offset = 10.0f;
+	
+	IMContainer menu_container(menu_size.x, menu_size.y);
+	menu_container.setAlignment(CACenter, CACenter);
+	IMDivider menu_divider("menu_divider", DOVertical);
+	menu_container.setElement(menu_divider);
+	
+	//Username input field.
+	IMContainer username_container(button_size.x / 2.0f, button_size.y);
+	username_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("activate_search"), "");
+	IMDivider username_divider("username_divider", DOHorizontal);
+	IMContainer username_parent_container(button_size.x / 2.0f, button_size.y);
+	IMDivider username_parent("username_parent", DOHorizontal);
+	username_parent_container.setElement(username_parent);
+	username_container.setElement(username_divider);
+	
+	IMText description_label("Username: ", client_connect_font);
+	description_label.setZOrdering(3);
+	username_divider.append(description_label);
+	
+	username_divider.appendSpacer(25);
+	
+	IMText username_label(username, client_connect_font);
+	username_label.setZOrdering(3);
+	username_parent.append(username_label);
+	username_divider.append(username_parent_container);
+	
+	IMImage username_background(white_background);
+	username_background.setZOrdering(0);
+	username_background.setSize(button_size - button_size_offset);
+	username_background.setColor(vec4(0,0,0,0.75));
+	username_parent_container.addFloatingElement(username_background, "username_background", vec2(button_size_offset / 2.0f));
+	
+	username_field.SetInputField(@username_label, @username_parent);
+	
+	menu_divider.append(username_container);
+	
+	//The main background
+	IMImage background(white_background);
+	background.setColor(background_color);
+	background.setSize(menu_size);
+	menu_container.addFloatingElement(background, "background", vec2(0));
+	imGUI.getMain().setSize(vec2(2560, 1000));
+	/*imGUI.getMain().setAlignment(CACenter, CACenter);*/
+	imGUI.getMain().setElement(menu_container);
+}
+
+void AddServerListUI(){
+	cc_ui_added = true;
+	level.Execute("has_gui = true;");
+	vec2 menu_size(1000, 500);
+	vec4 background_color(0,0,0,0.5);
+	vec2 connect_button_size(1000, 60);
+	float button_size_offset = 10.0f;
+	int server_name_width = 500;
+	int latency_width = 200;
+	int nr_players_width = 200;
+	
+	server_retriever.CheckOnlineServers();
+	
+	IMContainer menu_container(menu_size.x, menu_size.y);
+	menu_container.showBorder();
+	menu_container.setAlignment(CACenter, CATop);
+	IMDivider menu_divider("menu_divider", DOVertical);
+	menu_container.setElement(menu_divider);
+	
+	menu_divider.appendSpacer(10);
+	
+	//Pick a server titlebar
+	IMContainer pick_server_container(connect_button_size.x, connect_button_size.y);
+	menu_divider.append(pick_server_container);
+	IMDivider pick_server_divider("pick_server_divider", DOHorizontal);
+	pick_server_divider.setZOrdering(4);
+	pick_server_container.setElement(pick_server_divider);
+	IMText pick_server("Pick a server", client_connect_font);
+	pick_server_divider.append(pick_server);
+	//Title background
+	IMImage pick_server_background(brushstroke_background);
+	pick_server_background.setZOrdering(2);
+	pick_server_background.setClip(false);
+	pick_server_background.setSize(vec2(500, 60));
+	pick_server_background.setAlpha(0.85f);
+	pick_server_container.addFloatingElement(pick_server_background, "pick_server_background", vec2(pick_server_container.getSizeX() / 2.0f - pick_server_background.getSizeX() / 2.0f,0));
+	
+	//Server browser titlebar
+	IMContainer titlebar_container(connect_button_size.x, connect_button_size.y);
+	menu_divider.append(titlebar_container);
+	IMDivider titlebar_divider("titlebar_divider", DOHorizontal);
+	titlebar_divider.setZOrdering(4);
+	titlebar_container.setElement(titlebar_divider);
+	
+	IMContainer servername_label_container(server_name_width);
+	IMText servername_label("Server name", client_connect_font);
+	servername_label.setZOrdering(4);
+	servername_label_container.setElement(servername_label);
+	titlebar_divider.append(servername_label_container);
+	
+	IMContainer latency_label_container(latency_width);
+	IMText latency_label("Latency", client_connect_font);
+	latency_label.setZOrdering(4);
+	latency_label_container.setElement(latency_label);
+	titlebar_divider.append(latency_label_container);
+	
+	IMContainer nr_players_label_container(nr_players_width);
+	IMText nr_players_label("Nr players", client_connect_font);
+	nr_players_label.setZOrdering(4);
+	nr_players_label_container.setElement(nr_players_label);
+	titlebar_divider.append(nr_players_label_container);
+	
+	for(uint i = 0; i < server_retriever.online_servers.size(); i++){
+		//Connect button
+		IMContainer button_container(connect_button_size.x, connect_button_size.y);
+		button_container.sendMouseOverToChildren(true);
+		IMDivider button_divider("button_divider", DOHorizontal);
+		button_container.setElement(button_divider);
+		
+		button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("server_chosen", i), "");
+		menu_divider.append(button_container);
+		
+		Print("name " + server_retriever.online_servers[i].server_name + "\n");
+		
+		//The server name
+		IMContainer servername_container(server_name_width);
+		IMText server_name(server_retriever.online_servers[i].server_name, client_connect_font_small);
+		server_name.setZOrdering(4);
+		server_name.addMouseOverBehavior(mouseover_fontcolor, "");
+		servername_container.setElement(server_name);
+		button_divider.append(servername_container);
+		
+		//The latency
+		IMContainer latency_container(latency_width);
+		IMText latency(server_retriever.online_servers[i].latency + " ms", client_connect_font_small);
+		latency.setZOrdering(4);
+		latency.addMouseOverBehavior(mouseover_fontcolor, "");
+		latency_container.setElement(latency);
+		button_divider.append(latency_container);
+		
+		//The number of players
+		IMContainer nr_players_container(nr_players_width);
+		IMText nr_players(server_retriever.online_servers[i].nr_players + "", client_connect_font_small);
+		nr_players.setZOrdering(4);
+		nr_players.addMouseOverBehavior(mouseover_fontcolor, "");
+		nr_players_container.setElement(nr_players);
+		button_divider.append(nr_players_container);
+		
+		IMImage button_background(white_background);
+		button_background.setZOrdering(0);
+		button_background.setSize(connect_button_size - button_size_offset);
+		button_background.setColor(vec4(0,0,0,0.75));
+		button_container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
+	}
+	
+	IMDivider info_divider("info_divider", DOHorizontal);
+	menu_divider.append(info_divider);
+	if(server_retriever.checking_servers){
+		Print("Getting more servers...\n");
+		IMText info("Getting more servers...", client_connect_font_small);
+		//info_divider.append(info);
+	}else if(server_retriever.online_servers.size() == 0){
+		IMText info("No online servers found.", client_connect_font_small);
+		//info_divider.append(info);
+	}
+	
+	//The errors are put in this divider
+	@error_divider = IMDivider("error_divider", DOVertical);
+	menu_divider.append(error_divider);
+	
+	//The main background
+	IMImage background(white_background);
+	background.setColor(background_color);
+	background.setSize(menu_size);
+	menu_container.addFloatingElement(background, "background", vec2(0));
+	imGUI.getMain().setSize(vec2(2560, 1000));
+	/*imGUI.getMain().setAlignment(CACenter, CACenter);*/
+	imGUI.getMain().setElement(menu_container);
+}
+
+void AddLevelListUI(){
+	cc_ui_added = true;
+	level.Execute("has_gui = true;");
+	vec2 menu_size(1000, 500);
+	vec4 background_color(0,0,0,0.5);
+	vec2 connect_button_size(1000, 60);
+	float button_size_offset = 10.0f;
+	int level_name_width = 500;
+	int nr_players_width = 200;
+	
+	server_retriever.GetLevelList();
+	
+	IMContainer menu_container(menu_size.x, menu_size.y);
+	menu_container.showBorder();
+	menu_container.setAlignment(CACenter, CATop);
+	IMDivider menu_divider("menu_divider", DOVertical);
+	menu_container.setElement(menu_divider);
+	
+	menu_divider.appendSpacer(10);
+	
+	//Pick a level titlebar
+	IMContainer pick_level_container(connect_button_size.x, connect_button_size.y);
+	menu_divider.append(pick_level_container);
+	IMDivider pick_level_divider("pick_level_divider", DOHorizontal);
+	pick_level_divider.setZOrdering(4);
+	pick_level_container.setElement(pick_level_divider);
+	IMText pick_server("Pick a level", client_connect_font);
+	pick_level_divider.append(pick_server);
+	//Title background
+	IMImage pick_level_background(brushstroke_background);
+	pick_level_background.setZOrdering(2);
+	pick_level_background.setClip(false);
+	pick_level_background.setSize(vec2(500, 60));
+	pick_level_background.setAlpha(0.85f);
+	pick_level_container.addFloatingElement(pick_level_background, "pick_level_background", vec2(pick_level_container.getSizeX() / 2.0f - pick_level_background.getSizeX() / 2.0f,0));
+	
+	//Server browser titlebar
+	IMContainer titlebar_container(connect_button_size.x, connect_button_size.y);
+	menu_divider.append(titlebar_container);
+	IMDivider titlebar_divider("titlebar_divider", DOHorizontal);
+	titlebar_divider.setZOrdering(3);
+	titlebar_container.setElement(titlebar_divider);
+	
+	IMContainer levelname_label_container(level_name_width);
+	IMText levelname_label("Level name", client_connect_font);
+	levelname_label.setZOrdering(3);
+	levelname_label_container.setElement(levelname_label);
+	titlebar_divider.append(levelname_label_container);
+	
+	IMContainer nr_players_label_container(nr_players_width);
+	IMText nr_players_label("Nr players", client_connect_font);
+	nr_players_label.setZOrdering(3);
+	nr_players_label_container.setElement(nr_players_label);
+	titlebar_divider.append(nr_players_label_container);
+	
+	bool server_includes_this_level = false;
+	
+	for(uint i = 0; i < current_server.levels.size(); i++){
+		if(current_server.levels[i].level_path == level_name){
+			server_includes_this_level = true;
+		}
+	}
+	if(!server_includes_this_level){
+		//Add the current level always to the top of the list.
+		IMContainer button_container(connect_button_size.x, connect_button_size.y);
+		button_container.sendMouseOverToChildren(true);
+		IMDivider button_divider("button_divider", DOHorizontal);
+		button_container.setElement(button_divider);
+		
+		button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("level_chosen", level_name), "");
+		menu_divider.append(button_container);
+		
+		//The level name
+		IMContainer levelname_container(level_name_width);
+		IMText level_name_label("Current level: " + level_name, client_connect_font_small);
+		level_name_label.setZOrdering(4);
+		level_name_label.addMouseOverBehavior(mouseover_fontcolor, "");
+		levelname_container.setElement(level_name_label);
+		button_divider.append(levelname_container);
+		
+		//The number of players
+		IMContainer nr_players_container(nr_players_width);
+		IMText nr_players("0", client_connect_font_small);
+		nr_players.setZOrdering(4);
+		nr_players.addMouseOverBehavior(mouseover_fontcolor, "");
+		nr_players_container.setElement(nr_players);
+		button_divider.append(nr_players_container);
+		
+		IMImage button_background(white_background);
+		button_background.setZOrdering(0);
+		button_background.setSize(connect_button_size - button_size_offset);
+		button_background.setColor(vec4(0,0,0,0.75));
+		button_container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
+	}
+	
+	{
+		for(uint i = 0; i < current_server.levels.size(); i++){
+			IMContainer button_container(connect_button_size.x, connect_button_size.y);
+			button_container.sendMouseOverToChildren(true);
+			IMDivider button_divider("button_divider", DOHorizontal);
+			button_container.setElement(button_divider);
+			
+			button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("level_chosen", level_name), "");
+			menu_divider.append(button_container);
+			
+			//The level name
+			IMContainer levelname_container(level_name_width);
+			IMText level_name_label("", client_connect_font_small);
+			if(current_server.levels[i].level_path == level_name){
+				level_name_label.setText("Current level: " + current_server.levels[i].level_name);
+			}else{
+				level_name_label.setText(current_server.levels[i].level_name);
+			}
+			level_name_label.setZOrdering(4);
+			level_name_label.addMouseOverBehavior(mouseover_fontcolor, "");
+			levelname_container.setElement(level_name_label);
+			button_divider.append(levelname_container);
+			
+			//The number of players
+			IMContainer nr_players_container(nr_players_width);
+			IMText nr_players(current_server.levels[i].nr_players + "", client_connect_font_small);
+			nr_players.setZOrdering(4);
+			nr_players.addMouseOverBehavior(mouseover_fontcolor, "");
+			nr_players_container.setElement(nr_players);
+			button_divider.append(nr_players_container);
+			
+			IMImage button_background(white_background);
+			button_background.setZOrdering(0);
+			button_background.setSize(connect_button_size - button_size_offset);
+			button_background.setColor(vec4(0,0,0,0.75));
+			button_container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
+		}
+	}
+	
+	{
+		menu_divider.appendSpacer(10);
+		//The previous button
+		IMContainer button_container(connect_button_size.x, connect_button_size.y);
+		button_container.setAlignment(CALeft, CACenter);
+		IMDivider button_divider("button_divider", DOHorizontal);
+		button_divider.setZOrdering(4);
+		button_container.setElement(button_divider);
+		button_divider.appendSpacer(50);
+		IMText previous("Previous", client_connect_font);
+		previous.addMouseOverBehavior(mouseover_fontcolor, "");
+		button_divider.append(previous);
+		
+		IMImage button_background(white_background);
+		button_background.setZOrdering(0);
+		button_background.setSize(vec2(200, connect_button_size.y - button_size_offset));
+		button_background.setColor(vec4(0,0,0,0.75));
+		button_container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
+		
+		button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("previous_ui"), "");
+		menu_divider.append(button_container);
+	}
+	
+	//The errors are put in this divider
+	@error_divider = IMDivider("error_divider", DOVertical);
+	menu_divider.append(error_divider);
+	
+	//The main background
+	IMImage background(white_background);
+	background.setColor(background_color);
+	background.setSize(menu_size);
+	menu_container.addFloatingElement(background, "background", vec2(0));
+	imGUI.getMain().setSize(vec2(2560, 1000));
+	/*imGUI.getMain().setAlignment(CACenter, CACenter);*/
+	imGUI.getMain().setElement(menu_container);
+}
+
+void AddPlayerListUI(){
+	
+}
+
+void PostInit(){
+	player_id = GetPlayerCharacterID();
+	//Create a random username from an adjactive and a noun.
+	username = adjectives[rand() % adjectives.length()] + nouns[rand() % nouns.length()];
+}
+
 void Update(int paused) {
 	imGUI.update();
 	server_retriever.Update();
 	UpdateConnectedIcon();
 	username_field.Update();
-	if(start_adding_cc_ui && !server_retriever.checking_servers){
-		AddClientConnectUI();
-		start_adding_cc_ui = false;
-	}
-	
     if(!post_init_run){
-        player_id = GetPlayerCharacterID();
+		PostInit();
         post_init_run = true;
-		username = adjectives[rand() % adjectives.length()] + nouns[rand() % nouns.length()];
-		/*username = "Gyrth" + rand();*/
     }
 
     if(connected_to_server){
@@ -342,16 +752,22 @@ void Update(int paused) {
         IMMessage@ message = imGUI.getNextMessage();
 		Log( info, "Got processMessage " + message.name );
 		if( message.name == "" ){return;}
-		else if( message.name == "connect" ){
-			Log(info, "Trying to connect to server");
+		else if( message.name == "server_chosen" ){
 			int index = message.getInt(0);
 			@current_server = server_retriever.online_servers[index];
-	        trying_to_connect = true;
+			currentUIState++;
+	        RefreshUI();
+		}
+		else if( message.name == "previous_ui" ){
+			if(currentUIState > 0){
+				currentUIState--;
+		        RefreshUI();
+			}
 		}
 		else if( message.name == "disconnect" ){
 			Log(info, "Received message to disconnect from server");
 	        DisconnectFromServer();
-			RemoveClientConnectUI();
+			RemoveUI();
 		}
 		else if( message.name == "activate_search" ){
 			username_field.Activate();
@@ -411,172 +827,18 @@ void PreConnectedKeyChecks(){
     if(GetInputPressed(ReadCharacter(player_id).controller_id, "f12") && !trying_to_connect){
 		Print("pressed f12\n");
 		if(cc_ui_added){
-			RemoveClientConnectUI();
+			RemoveUI();
 			server_retriever.server_index = 0;
 			server_retriever.online_servers.resize(0);
 		}else{
-			AddClientConnectUI();
-			start_adding_cc_ui = true;
-			server_retriever.checking_servers = true;
+			AddUI();
+			//TODO just for debugging
+			/*currentUIState++;*/
 		}
     }
 	else if(GetInputPressed(ReadCharacter(player_id).controller_id, "f5")){
 		
 	}
-}
-
-void AddClientConnectUI(){
-	cc_ui_added = true;
-	level.Execute("has_gui = true;");
-	vec2 menu_size(1000, 500);
-	vec4 background_color(0,0,0,0.5);
-	vec2 connect_button_size(1000, 60);
-	float button_size_offset = 10.0f;
-	int server_name_width = 500;
-	int latency_width = 200;
-	int nr_players_width = 200;
-	
-	IMContainer menu_container(menu_size.x, menu_size.y);
-	menu_container.setAlignment(CACenter, CATop);
-	IMDivider menu_divider("menu_divider", DOVertical);
-	menu_container.setElement(menu_divider);
-	
-	//Server browser titlebar
-	IMContainer titlebar_container(connect_button_size.x, connect_button_size.y);
-	menu_divider.append(titlebar_container);
-	IMDivider titlebar_divider("titlebar_divider", DOHorizontal);
-	titlebar_divider.setZOrdering(3);
-	titlebar_container.setElement(titlebar_divider);
-	
-	IMContainer servername_label_container(server_name_width);
-	IMText servername_label("Server name", client_connect_font);
-	servername_label.setZOrdering(3);
-	servername_label_container.setElement(servername_label);
-	titlebar_divider.append(servername_label_container);
-	
-	IMContainer latency_label_container(latency_width);
-	IMText latency_label("Latency", client_connect_font);
-	latency_label.setZOrdering(3);
-	latency_label_container.setElement(latency_label);
-	titlebar_divider.append(latency_label_container);
-	
-	IMContainer nr_players_label_container(nr_players_width);
-	IMText nr_players_label("Nr players", client_connect_font);
-	nr_players_label.setZOrdering(3);
-	nr_players_label_container.setElement(nr_players_label);
-	titlebar_divider.append(nr_players_label_container);
-	
-	for(uint i = 0; i < server_retriever.online_servers.size(); i++){
-		//Connect button
-		IMContainer button_container(connect_button_size.x, connect_button_size.y);
-		button_container.sendMouseOverToChildren(true);
-		IMDivider button_divider("button_divider", DOHorizontal);
-		button_container.setElement(button_divider);
-		
-		button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("connect", i), "");
-		menu_divider.append(button_container);
-		
-		//The server name
-		IMContainer servername_container(server_name_width);
-		IMText server_name(server_retriever.online_servers[i].server_name, client_connect_font_small);
-		server_name.setZOrdering(3);
-		server_name.addMouseOverBehavior(mouseover_fontcolor, "");
-		servername_container.setElement(server_name);
-		button_divider.append(servername_container);
-		
-		//The latency
-		IMContainer latency_container(latency_width);
-		IMText latency(server_retriever.online_servers[i].latency + " ms", client_connect_font_small);
-		latency.setZOrdering(3);
-		latency.addMouseOverBehavior(mouseover_fontcolor, "");
-		latency_container.setElement(latency);
-		button_divider.append(latency_container);
-		
-		//The number of players
-		IMContainer nr_players_container(nr_players_width);
-		IMText nr_players(server_retriever.online_servers[i].nr_players + "", client_connect_font_small);
-		nr_players.setZOrdering(3);
-		nr_players.addMouseOverBehavior(mouseover_fontcolor, "");
-		nr_players_container.setElement(nr_players);
-		button_divider.append(nr_players_container);
-		
-		IMImage button_background(white_background);
-		button_background.setZOrdering(0);
-		button_background.setSize(connect_button_size - button_size_offset);
-		button_background.setColor(vec4(0,0,0,0.75));
-		button_container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
-	}
-	
-	if(connected_to_server){
-		//Disconnect button
-		IMContainer button_container(connect_button_size.x, connect_button_size.y);
-		button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("disconnect"), "");
-		menu_divider.append(button_container);
-		
-		IMText connect_text("Disconnect from server.", client_connect_font);
-		connect_text.addMouseOverBehavior(mouseover_fontcolor, "");
-		connect_text.setZOrdering(3);
-		button_container.setElement(connect_text);
-		
-		IMImage button_background(white_background);
-		button_background.setZOrdering(0);
-		button_background.setSize(connect_button_size - button_size_offset);
-		button_background.setColor(vec4(0,0,0,0.75));
-		button_container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
-	}
-	menu_divider.appendSpacer(10);
-	
-	//The errors are put in this divider
-	@error_divider = IMDivider("error_divider", DOVertical);
-	menu_divider.append(error_divider);
-	
-	//A bit of extra space between the server labels and username input.
-	menu_divider.appendSpacer(100);
-	
-	//Username input field.
-	IMContainer username_container(connect_button_size.x / 2.0f, connect_button_size.y);
-	username_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("activate_search"), "");
-	IMDivider username_divider("username_divider", DOHorizontal);
-	IMContainer username_parent_container(connect_button_size.x / 2.0f, connect_button_size.y);
-	IMDivider username_parent("username_parent", DOHorizontal);
-	username_parent_container.setElement(username_parent);
-	username_container.setElement(username_divider);
-	
-	IMText description_label("Username: ", client_connect_font);
-	description_label.setZOrdering(3);
-	username_divider.append(description_label);
-	
-	username_divider.appendSpacer(25);
-	
-	IMText username_label(username, client_connect_font);
-	username_label.setZOrdering(3);
-	username_parent.append(username_label);
-	username_divider.append(username_parent_container);
-	
-	IMImage username_background(white_background);
-	username_background.setZOrdering(0);
-	username_background.setSize(connect_button_size - button_size_offset);
-	username_background.setColor(vec4(0,0,0,0.75));
-	username_parent_container.addFloatingElement(username_background, "username_background", vec2(button_size_offset / 2.0f));
-	
-	username_field.SetInputField(@username_label, @username_parent);
-	
-	menu_divider.append(username_container);
-	
-	//The main background
-	IMImage background(white_background);
-	background.setColor(background_color);
-	background.setSize(menu_size);
-	menu_container.addFloatingElement(background, "background", vec2(0));
-	imGUI.getMain().setSize(vec2(2560, 1000));
-	/*imGUI.getMain().setAlignment(CACenter, CACenter);*/
-	imGUI.getMain().setElement(menu_container);
-}
-
-void RemoveClientConnectUI(){
-	cc_ui_added = false;
-	level.Execute("has_gui = false;");
-	imGUI.getMain().clear();
 }
 
 void KeyChecks(){
@@ -608,12 +870,12 @@ void KeyChecks(){
 		Print("pressed f12\n");
 		if(cc_ui_added){
 			Print("removecleintconnect\n");
-			RemoveClientConnectUI();
+			RemoveUI();
 			server_retriever.server_index = 0;
 			server_retriever.online_servers.resize(0);
 		}else{
 			Print("addcleintconnect\n");
-			AddClientConnectUI();
+			AddUsernameUI();
 			start_adding_cc_ui = true;
 			server_retriever.checking_servers = true;
 		}

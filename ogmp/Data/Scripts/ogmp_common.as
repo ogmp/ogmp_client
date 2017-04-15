@@ -7,6 +7,7 @@ IMPulseAlpha pulse(1.0f, 0.0f, 2.0f);
 string connected_icon = "UI/ClientConnect/images/connected.png";
 string disconnected_icon = "UI/ClientConnect/images/disconnected.png";
 string white_background = "Textures/ui/menus/main/white_square.png";
+string brushstroke_background = "Textures/ui/menus/main/brushStroke.png";
 
 string turner = "Data/Characters/ogmp/turner.xml";
 
@@ -26,6 +27,7 @@ uint8 LoadPosition = 8;
 uint8 UpdateCharacter = 9;
 uint8 Error = 10;
 uint8 ServerInfo = 11;
+uint8 LevelList = 12;
 
 uint retriever_socket = SOCKET_ID_INVALID;
 uint main_socket = SOCKET_ID_INVALID;
@@ -44,9 +46,21 @@ class ServerConnectionInfo{
 	int port;
 	bool valid = false;
 	double latency;
+	array<LevelInfo@> levels;
 	ServerConnectionInfo(string address_, int port_){
 		address = address_;
 		port = port_;
+	}
+}
+
+class LevelInfo{
+	string level_name;
+	string level_path;
+	int nr_players;
+	LevelInfo(string level_name_, string level_path_, int nr_players_){
+		level_name = level_name_;
+		level_path = level_path_;
+		nr_players = nr_players_;
 	}
 }
 
@@ -60,45 +74,86 @@ class ServerRetriever{
 	uint64 start_time;
 	array<ServerConnectionInfo@> online_servers;
 	bool getting_server_info = false;
+	bool checked_online_servers = false;
+	bool getting_level_list = false;
 	void Update(){
-		if(checking_servers && !getting_server_info){
-			if(server_index >= int(server_list.size())){
-				checking_servers = false;
-				return;
-			}
-			timer += time_step;
-			//Every interval check for a connection
-			if(timer > connect_try_interval){
-				timer = 0.0f;
-				if( retriever_socket == SOCKET_ID_INVALID ) {
-		            Log( info, "Trying to connect" );
-					start_time = GetPerformanceCounter();
-					retriever_socket = CreateSocketTCP(server_list[server_index].address, server_list[server_index].port);
-		            if( retriever_socket != SOCKET_ID_INVALID ) {
-						Log( info, "Connected " + server_list[server_index].address + "!!!!");
-						server_list[server_index].latency = (GetPerformanceCounter() - start_time) * 1000.0 / GetPerformanceFrequency();
-						Print("Latency " + server_list[server_index].latency + " miliseconds\n");
-						
-						online_servers.insertLast(server_list[server_index]);
-						GetNextServer();
-		            } else {
-		                Log( warning, "Unable to connect");
-		            }
-		        }
-				if( !IsValidSocketTCP(retriever_socket) ){
-					Log(info, "invalid");
-					retriever_socket = SOCKET_ID_INVALID;
-				}else{
-					Log(info, "valid");
-					array<uint8> info_message = {ServerInfo};
-					SocketTCPSend(retriever_socket,info_message);
-					getting_server_info = true;
+		if(getting_server_info){
+			UpdateGetServerInfo();
+		}
+		else if(getting_level_list){
+			UpdateGetLevelList();
+		}
+		else if(checking_servers){
+			UpdateCheckingServers();
+		}
+	}
+	void UpdateGetLevelList(){
+		timer += time_step;
+		//Every interval check for a connection
+		if(timer > connect_try_interval){
+			timer = 0.0f;
+			if( retriever_socket == SOCKET_ID_INVALID ) {
+				retriever_socket = CreateSocketTCP(current_server.address, current_server.port);
+				if( retriever_socket != SOCKET_ID_INVALID ) {
+					Log( info, "socked valid");
+				} else {
+					Log( warning, "Unable to connect");
 				}
+			}
+			if( IsValidSocketTCP(retriever_socket) ){
+				Log(info, "valid");
+				Log(info, "Send LevelList!");
+				array<uint8> levellist_message = {LevelList};
+				SocketTCPSend(retriever_socket, levellist_message);
+				getting_level_list = false;
+			}else{
+				Log(info, "invalid");
+				retriever_socket = SOCKET_ID_INVALID;
+				connect_tries++;
+				if(connect_tries == max_connect_tries){
+					connect_tries = 0;
+					getting_level_list = false;
+				}
+			}
+		}
+	}
+	void UpdateGetServerInfo(){
+		
+	}
+	void UpdateCheckingServers(){
+		if(server_index >= int(server_list.size())){
+			return;
+		}
+		timer += time_step;
+		//Every interval check for a connection
+		if(timer > connect_try_interval){
+			timer = 0.0f;
+			if( retriever_socket == SOCKET_ID_INVALID ) {
+				start_time = GetPerformanceCounter();
+				retriever_socket = CreateSocketTCP(server_list[server_index].address, server_list[server_index].port);
+				if( retriever_socket != SOCKET_ID_INVALID ) {
+					server_list[server_index].latency = (GetPerformanceCounter() - start_time) * 1000.0 / GetPerformanceFrequency();					
+					online_servers.insertLast(server_list[server_index]);
+					GetNextServer();
+				} else {
+					Log( warning, "Unable to connect");
+				}
+			}
+			if( !IsValidSocketTCP(retriever_socket) ){
+				Log(info, "invalid");
+				retriever_socket = SOCKET_ID_INVALID;
 				connect_tries++;
 				if(connect_tries == max_connect_tries){
 					connect_tries = 0;
 					GetNextServer();
 				}
+			}else{
+				Log(info, "valid");
+				array<uint8> info_message = {ServerInfo};
+				SocketTCPSend(retriever_socket,info_message);
+				connect_tries = 0;
+				GetNextServer();
+				getting_server_info = true;
 			}
 		}
 	}
@@ -107,11 +162,30 @@ class ServerRetriever{
 		online_servers[online_servers.size() - 1].nr_players = nr_players_;
 		getting_server_info = false;
 		retriever_socket = SOCKET_ID_INVALID;
+		RefreshUI();
+	}
+	void SetLevelList(array<LevelInfo@> levels_){
+		current_server.levels = levels_;
+		getting_level_list = false;
+		RefreshUI();
 	}
 	void GetNextServer(){
 		server_index++;
 		if(server_index >= int(server_list.size())){
+			//Every server address has been checked.
+			checked_online_servers = true;
 			checking_servers = false;
+			RefreshUI();
+		}
+	}
+	void CheckOnlineServers(){
+		if(!checking_servers && !checked_online_servers){
+			checking_servers = true;
+		}
+	}
+	void GetLevelList(){
+		if(!getting_level_list){
+			getting_level_list = true;
 		}
 	}
 }
