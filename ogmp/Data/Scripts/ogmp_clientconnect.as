@@ -1,6 +1,7 @@
 #include "ogmp_common.as"
 
 uint connect_try_countdown = 5;
+string level_path = "";
 string level_name = "";
 int player_id = -1;
 int initial_sequence_id;
@@ -15,12 +16,12 @@ enum ClientUIState {
 	PlayerListUI = 3
 }
 
-ClientUIState currentUIState = ServerListUI;
+ClientUIState currentUIState = UsernameUI;
 
 string username = "";
 string team = "";
 string welcome_message = "";
-string character = "";
+string character = "Turner";
 
 int ragdoll_counter = 0;
 float dir_x = 0.0f;
@@ -72,12 +73,28 @@ ServerConnectionInfo@ current_server;
 IMDivider@ error_divider;
 
 void Init(string p_level_name) {
-    level_name = GetCurrLevel();
+    level_path = GetCurrLevel();
+	level_name = p_level_name;
 	imGUI.setFooterHeight(350);
 	imGUI.setHeaderHeight(100);
 	imGUI.setup();
 	imGUI.getHeader().setAlignment(CALeft, CACenter);
 	chat.Initialize();
+	HandleConnectOnInit();
+}
+
+void HandleConnectOnInit(){
+	if(StorageHasInt32("ogmp_connect")){
+		Print("Found ogmp connect " + StorageGetInt32("ogmp_connect") + "\n");
+		if(StorageGetInt32("ogmp_connect") == 1){
+			StorageSetInt32("ogmp_connect", -1);
+			@current_server = ServerConnectionInfo(StorageGetString("ogmp_address"), StorageGetInt32("ogmp_port"));
+			username = StorageGetString("ogmp_username");
+			character = StorageGetString("ogmp_character");
+			level_name = StorageGetString("ogmp_level_name");
+			trying_to_connect = true;
+		}
+	}
 }
 
 void IncomingTCPData(uint socket, array<uint8>@ data) {
@@ -363,15 +380,38 @@ void RefreshUI(){
 void AddUsernameUI(){
 	cc_ui_added = true;
 	level.Execute("has_gui = true;");
-	vec2 menu_size(1000, 500);
+	vec2 menu_size(1000, 50);
 	vec4 background_color(0,0,0,0.5);
 	vec2 button_size(1000, 60);
 	float button_size_offset = 10.0f;
 	
 	IMContainer menu_container(menu_size.x, menu_size.y);
-	menu_container.setAlignment(CACenter, CACenter);
+	menu_container.showBorder();
+	menu_container.setAlignment(CACenter, CATop);
 	IMDivider menu_divider("menu_divider", DOVertical);
 	menu_container.setElement(menu_divider);
+	
+	menu_divider.appendSpacer(10);
+	
+	{
+		//Choose a username and character
+		IMContainer container(button_size.x, button_size.y);
+		menu_divider.append(container);
+		IMDivider divider("title_divider", DOHorizontal);
+		divider.setZOrdering(4);
+		container.setElement(divider);
+		IMText title("Choose a username and character.", client_connect_font);
+		divider.append(title);
+		//Background
+		IMImage background(brushstroke_background);
+		background.setZOrdering(2);
+		background.setClip(false);
+		background.setSize(vec2(600, 60));
+		background.setAlpha(0.85f);
+		container.addFloatingElement(background, "background", vec2(container.getSizeX() / 2.0f - background.getSizeX() / 2.0f,0));
+	}
+	
+	menu_divider.appendSpacer(10);
 	
 	//Username input field.
 	IMContainer username_container(button_size.x / 2.0f, button_size.y);
@@ -400,23 +440,53 @@ void AddUsernameUI(){
 	username_parent_container.addFloatingElement(username_background, "username_background", vec2(button_size_offset / 2.0f));
 	
 	username_field.SetInputField(@username_label, @username_parent);
-	
 	menu_divider.append(username_container);
 	
+	menu_divider.appendSpacer(10);
+	//The next button
+	IMContainer container(button_size.x, button_size.y);
+	container.setAlignment(CARight, CACenter);
+	
+	IMContainer button_container(200, button_size.y);
+	button_container.setAlignment(CACenter, CACenter);
+	button_container.sendMouseDownToChildren(true);
+	container.setElement(button_container);
+	IMDivider button_divider("button_divider", DOHorizontal);
+	button_divider.setZOrdering(4);
+	button_container.setElement(button_divider);
+	
+	IMText button("Next", client_connect_font);
+	button.addMouseOverBehavior(mouseover_fontcolor, "");
+	button_divider.append(button);
+	button_divider.appendSpacer(50);
+	
+	/*button_container.showBorder();
+	button.showBorder();
+	container.showBorder();*/
+	
+	IMImage button_background(white_background);
+	button_background.setZOrdering(0);
+	button_background.setSize(vec2(200 - button_size_offset, button_size.y - button_size_offset));
+	button_background.setColor(vec4(0,0,0,0.75));
+	button_container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
+	
+	button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("next_ui"), "");
+	menu_divider.append(container);
+
 	//The main background
 	IMImage background(white_background);
+	background.addLeftMouseClickBehavior(IMFixedMessageOnClick("close_all"), "");
 	background.setColor(background_color);
-	background.setSize(menu_size);
+	background.setSize(vec2(menu_size.x, 1000));
 	menu_container.addFloatingElement(background, "background", vec2(0));
 	imGUI.getMain().setSize(vec2(2560, 1000));
-	/*imGUI.getMain().setAlignment(CACenter, CACenter);*/
 	imGUI.getMain().setElement(menu_container);
 }
 
 void AddServerListUI(){
 	cc_ui_added = true;
 	level.Execute("has_gui = true;");
-	vec2 menu_size(1000, 500);
+	vec2 menu_size(1000, 50);
 	vec4 background_color(0,0,0,0.5);
 	vec2 connect_button_size(1000, 60);
 	float button_size_offset = 10.0f;
@@ -533,10 +603,33 @@ void AddServerListUI(){
 	@error_divider = IMDivider("error_divider", DOVertical);
 	menu_divider.append(error_divider);
 	
+	{
+		menu_divider.appendSpacer(10);
+		//The previous button
+		IMContainer button_container(connect_button_size.x, connect_button_size.y);
+		button_container.setAlignment(CALeft, CACenter);
+		IMDivider button_divider("button_divider", DOHorizontal);
+		button_divider.setZOrdering(4);
+		button_container.setElement(button_divider);
+		button_divider.appendSpacer(50);
+		IMText button("Previous", client_connect_font);
+		button.addMouseOverBehavior(mouseover_fontcolor, "");
+		button_divider.append(button);
+		
+		IMImage button_background(white_background);
+		button_background.setZOrdering(0);
+		button_background.setSize(vec2(200, connect_button_size.y - button_size_offset));
+		button_background.setColor(vec4(0,0,0,0.75));
+		button_container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
+		
+		button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("previous_ui"), "");
+		menu_divider.append(button_container);
+	}
+	
 	//The main background
 	IMImage background(white_background);
 	background.setColor(background_color);
-	background.setSize(menu_size);
+	background.setSize(vec2(menu_size.x, 1000));
 	menu_container.addFloatingElement(background, "background", vec2(0));
 	imGUI.getMain().setSize(vec2(2560, 1000));
 	/*imGUI.getMain().setAlignment(CACenter, CACenter);*/
@@ -546,7 +639,7 @@ void AddServerListUI(){
 void AddLevelListUI(){
 	cc_ui_added = true;
 	level.Execute("has_gui = true;");
-	vec2 menu_size(1000, 500);
+	vec2 menu_size(1000, 50);
 	vec4 background_color(0,0,0,0.5);
 	vec2 connect_button_size(1000, 60);
 	float button_size_offset = 10.0f;
@@ -601,7 +694,7 @@ void AddLevelListUI(){
 	bool server_includes_this_level = false;
 	
 	for(uint i = 0; i < current_server.levels.size(); i++){
-		if(current_server.levels[i].level_path == level_name){
+		if(current_server.levels[i].level_path == level_path){
 			server_includes_this_level = true;
 		}
 	}
@@ -612,7 +705,11 @@ void AddLevelListUI(){
 		IMDivider button_divider("button_divider", DOHorizontal);
 		button_container.setElement(button_divider);
 		
-		button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("level_chosen", level_name), "");
+		IMMessage level_chosen("level_chosen");
+		level_chosen.addString(level_name);
+		level_chosen.addString(level_path);
+		
+		button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick(level_chosen), "");
 		menu_divider.append(button_container);
 		
 		//The level name
@@ -645,13 +742,17 @@ void AddLevelListUI(){
 			IMDivider button_divider("button_divider", DOHorizontal);
 			button_container.setElement(button_divider);
 			
-			button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("level_chosen", level_name), "");
+			IMMessage level_chosen("level_chosen");
+			level_chosen.addString(current_server.levels[i].level_name);
+			level_chosen.addString(current_server.levels[i].level_path);
+			
+			button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick(level_chosen), "");
 			menu_divider.append(button_container);
 			
 			//The level name
 			IMContainer levelname_container(level_name_width);
 			IMText level_name_label("", client_connect_font_small);
-			if(current_server.levels[i].level_path == level_name){
+			if(current_server.levels[i].level_path == level_path){
 				level_name_label.setText("Current level: " + current_server.levels[i].level_name);
 			}else{
 				level_name_label.setText(current_server.levels[i].level_name);
@@ -686,9 +787,9 @@ void AddLevelListUI(){
 		button_divider.setZOrdering(4);
 		button_container.setElement(button_divider);
 		button_divider.appendSpacer(50);
-		IMText previous("Previous", client_connect_font);
-		previous.addMouseOverBehavior(mouseover_fontcolor, "");
-		button_divider.append(previous);
+		IMText button("Previous", client_connect_font);
+		button.addMouseOverBehavior(mouseover_fontcolor, "");
+		button_divider.append(button);
 		
 		IMImage button_background(white_background);
 		button_background.setZOrdering(0);
@@ -707,7 +808,7 @@ void AddLevelListUI(){
 	//The main background
 	IMImage background(white_background);
 	background.setColor(background_color);
-	background.setSize(menu_size);
+	background.setSize(vec2(menu_size.x, 1000));
 	menu_container.addFloatingElement(background, "background", vec2(0));
 	imGUI.getMain().setSize(vec2(2560, 1000));
 	/*imGUI.getMain().setAlignment(CACenter, CACenter);*/
@@ -758,11 +859,18 @@ void Update(int paused) {
 			currentUIState++;
 	        RefreshUI();
 		}
+		else if( message.name == "level_chosen" ){
+			HandleLevelChosen(message.getString(0), message.getString(1));
+		}
 		else if( message.name == "previous_ui" ){
 			if(currentUIState > 0){
 				currentUIState--;
 		        RefreshUI();
 			}
+		}
+		else if( message.name == "next_ui" ){
+			currentUIState++;
+			RefreshUI();
 		}
 		else if( message.name == "disconnect" ){
 			Log(info, "Received message to disconnect from server");
@@ -771,6 +879,9 @@ void Update(int paused) {
 		}
 		else if( message.name == "activate_search" ){
 			username_field.Activate();
+		}
+		else if( message.name == "close_all" ){
+			username_field.Deactivate();
 		}
 	}
 	SeparateMessages();
@@ -798,6 +909,30 @@ void UpdateConnectedIcon(){
 		icon.setSize(vec2(100, 100));
 		imGUI.getHeader().setElement(icon);
 		connected_icon_state = true;
+	}
+}
+
+void HandleLevelChosen(string chosen_level_name, string chosen_level_path){
+	Print("CHosen level name " + chosen_level_name + "\n");
+	Print("CHosen level path " + chosen_level_path + "\n");
+
+	if(chosen_level_path == level_path){
+		//Already on the level that the user want to join.
+		trying_to_connect = true;
+	}else{
+		if(FileExists(chosen_level_path)){
+			//Not yet on the level that the user want to join.
+			StorageSetInt32("ogmp_connect", 1);
+			StorageSetString("ogmp_level_name", chosen_level_name);
+			StorageSetString("ogmp_level_path", chosen_level_path);
+			StorageSetString("ogmp_username", username);
+			StorageSetString("ogmp_character", character);
+			StorageSetString("ogmp_address", current_server.address);
+			StorageSetInt32("ogmp_port", current_server.port);
+			LoadLevel(chosen_level_path);
+		}else{
+			DisplayError("error", "This map is not installed.");
+		}
 	}
 }
 

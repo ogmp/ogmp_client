@@ -76,6 +76,7 @@ class ServerRetriever{
 	bool getting_server_info = false;
 	bool checked_online_servers = false;
 	bool getting_level_list = false;
+	bool got_level_list = false;
 	void Update(){
 		if(getting_server_info){
 			UpdateGetServerInfo();
@@ -167,6 +168,7 @@ class ServerRetriever{
 	void SetLevelList(array<LevelInfo@> levels_){
 		current_server.levels = levels_;
 		getting_level_list = false;
+		got_level_list = true;
 		RefreshUI();
 	}
 	void GetNextServer(){
@@ -175,7 +177,7 @@ class ServerRetriever{
 			//Every server address has been checked.
 			checked_online_servers = true;
 			checking_servers = false;
-			RefreshUI();
+			server_index = 0;
 		}
 	}
 	void CheckOnlineServers(){
@@ -184,7 +186,7 @@ class ServerRetriever{
 		}
 	}
 	void GetLevelList(){
-		if(!getting_level_list){
+		if(!getting_level_list && !got_level_list){
 			getting_level_list = true;
 		}
 	}
@@ -207,6 +209,7 @@ class Inputfield {
 	IMText@ input_field;
 	IMDivider@ parent;
 	string query = "";
+	string backup_query;
 	int current_index = 0;
 	int cursor_offset = 0;
 	float long_press_input_timer = 0.0f;
@@ -225,6 +228,7 @@ class Inputfield {
 		player.velocity = vec3(0);
 		player.Execute("SetState(_ground_state);");
 		
+		backup_query = input_field.getText();
 		query = "";
 		active = true;
 		pressed_return = false;
@@ -247,6 +251,10 @@ class Inputfield {
 	void Deactivate(){
 		active = false;
 		parent.clear();
+		if(query == ""){
+			query = backup_query;
+		}
+		Print("query " + query + "\n");
 		IMText new_input_field(query, client_connect_font);
 		parent.append(new_input_field);
 		@input_field = @new_input_field;
