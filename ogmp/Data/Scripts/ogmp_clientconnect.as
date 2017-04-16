@@ -136,19 +136,24 @@ void ProcessIncomingMessage(array<uint8>@ data){
 	Log(info, "Message type : " + message_type);
 	int data_index = 1;
 	if(message_type == SignOn){
-		Log(info, "Incoming: " + "SignOn Command");
 		float refresh_rate = GetFloat(data, data_index);
-		Log(info, "refresh_rate: " + refresh_rate);
-		string username = GetString(data, data_index);
-		Log(info, "username: " + username);
-		string welcome_message = GetString(data, data_index);
-		Log(info, "welcome_message: " + welcome_message);
-		string team = GetString(data, data_index);
-		Log(info, "team: " + team);
-		string character = GetString(data, data_index);
-		Log(info, "character: " + character);
+		username = GetString(data, data_index);
+		welcome_message = GetString(data, data_index);
+		team = GetString(data, data_index);
+		character = GetString(data, data_index);
+		level_name = GetString(data, data_index);
 		connected_to_server = true;
 		interval = 1.0 / refresh_rate;
+		
+		chat.AddMessage(welcome_message, "server", true);
+		
+		Log(info, "Incoming: " + "SignOn Command");
+		Log(info, "refresh_rate: " + refresh_rate);
+		Log(info, "username: " + username);
+		Log(info, "welcome_message: " + welcome_message);
+		Log(info, "team: " + team);
+		Log(info, "character: " + character);
+		Log(info, "level_name: " + level_name);
 		Log(info, "interval: " + interval);
 		RemoveUI();
 	}
@@ -1067,8 +1072,9 @@ void SendSignOn(){
 	vec3 position = player.position;
 		
 	addToByteArray(username, @message);
-	addToByteArray("Turner", @message);
+	addToByteArray(character, @message);
 	addToByteArray(level_name, @message);
+	addToByteArray(level_path, @message);
 	addToByteArray("1.0.0", @message);
 	addToByteArray(position.x, @message);
 	addToByteArray(position.y, @message);
@@ -1534,7 +1540,7 @@ class Chat{
 						uint max_query_length = 60;
 						bool get_upper_case = false;
 						
-						/*Print("keycode " + keycode + "\n");*/
+						Print("keycode " + keycode + "\n");
 						
 						if(GetInputDown(ReadCharacter(player_id).controller_id, "shift")){
 							get_upper_case =true;
@@ -1568,9 +1574,17 @@ class Chat{
 							}
 							return;
 						}
-						if(new_chat_message.length() == max_query_length){
+						//Enter/return pressed
+						else if(keycode == 13){
+							if(new_chat_message != ""){
+								SendChatMessage(new_chat_message);
+							}
+							current_index = 0;
+							cursor_offset = 0;
+							RemoveChatInput();
 							return;
 						}
+						
 						if(get_upper_case){
 							keycode = ToUpperCase(keycode);
 						}
@@ -1579,14 +1593,6 @@ class Chat{
 						new_chat_message.insert(new_chat_message.length() - cursor_offset, new_character);
 						SetCurrentChatMessage();
 					}
-				}
-				if(GetInputPressed(0, "return")){
-					if(new_chat_message.length() > 0){
-						SendChatMessage(new_chat_message);
-					}
-					current_index = 0;
-					cursor_offset = 0;
-					RemoveChatInput();
 				}
 			}else{
 				if(GetInputPressed(0, "return")){
