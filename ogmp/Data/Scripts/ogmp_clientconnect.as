@@ -21,7 +21,7 @@ ClientUIState currentUIState = UsernameUI;
 string username = "";
 string team = "";
 string welcome_message = "";
-string character = "Turner";
+string character = "";
 
 int ragdoll_counter = 0;
 float dir_x = 0.0f;
@@ -71,6 +71,7 @@ IMDivider@ main_divider;
 array<uint8>@ data_collection = {};
 ServerConnectionInfo@ current_server;
 IMDivider@ error_divider;
+Dropdown@ dropdown;
 
 void Init(string p_level_name) {
     level_path = GetCurrLevel();
@@ -79,6 +80,7 @@ void Init(string p_level_name) {
 	imGUI.setHeaderHeight(100);
 	imGUI.setup();
 	imGUI.getHeader().setAlignment(CALeft, CACenter);
+	character = character_options[0];
 	chat.Initialize();
 	HandleConnectOnInit();
 }
@@ -144,6 +146,9 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		level_name = GetString(data, data_index);
 		connected_to_server = true;
 		interval = 1.0 / refresh_rate;
+		
+		MovementObject@ player = ReadCharacter(player_id);
+		player.Execute("SwitchCharacter(\"Data/Characters/" + character + ".xml\");");
 		
 		chat.AddMessage(welcome_message, "server", true);
 		
@@ -407,6 +412,7 @@ void AddUsernameUI(){
 	menu_container.setAlignment(CACenter, CATop);
 	IMDivider menu_divider("menu_divider", DOVertical);
 	menu_container.setElement(menu_divider);
+	/*menu_divider.showBorder();*/
 	
 	menu_divider.appendSpacer(10);
 	
@@ -432,21 +438,21 @@ void AddUsernameUI(){
 	
 	//Username input field.
 	IMContainer username_container(button_size.x / 2.0f, button_size.y);
-	username_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("activate_search"), "");
 	IMDivider username_divider("username_divider", DOHorizontal);
 	IMContainer username_parent_container(button_size.x / 2.0f, button_size.y);
 	IMDivider username_parent("username_parent", DOHorizontal);
 	username_parent_container.setElement(username_parent);
 	username_container.setElement(username_divider);
+	username_parent_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("activate_search"), "");
 	
 	IMText description_label("Username: ", client_connect_font);
-	description_label.setZOrdering(3);
+	description_label.setZOrdering(2);
 	username_divider.append(description_label);
 	
 	username_divider.appendSpacer(25);
-	
+		
 	IMText username_label(username, client_connect_font);
-	username_label.setZOrdering(3);
+	username_label.setZOrdering(2);
 	username_parent.append(username_label);
 	username_divider.append(username_parent_container);
 	
@@ -458,6 +464,32 @@ void AddUsernameUI(){
 	
 	username_field.SetInputField(@username_label, @username_parent);
 	menu_divider.append(username_container);
+	{
+		//Character dropdown.
+		IMContainer container(button_size.x / 2.0f, button_size.y);
+		IMDivider divider("character_divider", DOHorizontal);
+		container.setElement(divider);
+		
+		IMContainer parent_container(button_size.x / 2.0f, button_size.y);
+		IMDivider parent_divider("username_parent", DOHorizontal);
+		parent_container.setElement(parent_divider);
+	
+		IMText label("Character: ", client_connect_font);
+		label.setZOrdering(2);
+		divider.append(label);
+		
+		divider.appendSpacer(25);
+		
+		IMText character_label("", client_connect_font);
+		character_label.setZOrdering(2);
+		parent_divider.append(character_label);
+		divider.append(parent_container);
+		
+		Dropdown new_dropdown(character_options, character, parent_container);
+		@dropdown = @new_dropdown;
+		
+		menu_divider.append(container);
+	}
 	
 	menu_divider.appendSpacer(10);
 	//The next button
@@ -610,10 +642,10 @@ void AddServerListUI(){
 	if(server_retriever.checking_servers){
 		Print("Getting more servers...\n");
 		IMText info("Getting more servers...", client_connect_font_small);
-		//info_divider.append(info);
+		info_divider.append(info);
 	}else if(server_retriever.online_servers.size() == 0){
 		IMText info("No online servers found.", client_connect_font_small);
-		//info_divider.append(info);
+		info_divider.append(info);
 	}
 	
 	//The errors are put in this divider
@@ -973,9 +1005,25 @@ void Update(int paused) {
 		}
 		else if( message.name == "activate_search" ){
 			username_field.Activate();
+			dropdown.SetNewValue(character);
+			dropdown.Deactivate();
+		}
+		else if( message.name == "activate_dropdown" ){
+			if(username_field.active){
+				username_field.Deactivate();
+			}
+			dropdown.Activate();
 		}
 		else if( message.name == "close_all" ){
-			username_field.Deactivate();
+			if(username_field.active){
+				username_field.Deactivate();
+			}
+			dropdown.Deactivate();
+		}
+		else if( message.name == "option_chosen" ){
+			character = message.getString(0);
+			dropdown.SetNewValue(character);
+			dropdown.Deactivate();
 		}
 	}
 	SeparateMessages();
@@ -1134,6 +1182,7 @@ void DisconnectFromServer(){
 	DestroySocketTCP(main_socket);
 	main_socket = SOCKET_ID_INVALID;
 	connected_to_server = false;
+	currentUIState = UsernameUI;
 }
 
 void SendSavePosition(){

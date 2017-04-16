@@ -13,6 +13,7 @@ string turner = "Data/Characters/ogmp/turner.xml";
 
 array<string> adjectives = {"Little", "Old", "Bad", "Brave", "Handsome", "Quaint", "Prickly", "Nervous", "Jolly", "Gigantic", "Itchy", "Thoughtless", "Crooked", "Hissing", "Slow", "Flaky", "Damaged"};
 array<string> nouns = {"Cat", "Walnut", "Bird", "Cookie", "Aardvark", "Boy", "Dame", "Kitty", "Person", "Cow", "Dragon", "Investor", "Cook", "Frenchman", "Priest", "Tiger", "Zebra", "Raven", "David"};
+array<string> character_options = {"turner", "guard", "raider_rabbit", "pale_turner", "guard2", "base_guard", "cat", "female_rabbit_1"};
 
 //Message types 
 uint8 SignOn = 0;
@@ -52,6 +53,74 @@ class ServerConnectionInfo{
 	ServerConnectionInfo(string address_, int port_){
 		address = address_;
 		port = port_;
+	}
+}
+
+class Dropdown{
+	vec2 button_size(500, 60);
+	float button_size_offset = 10.0f;
+	array<string> options;
+	string current_value;
+	IMContainer@ parent;
+	Dropdown(array<string> options_, string current_value_, IMContainer@ parent_){
+		@parent = parent_;
+		options = options_;
+		current_value = current_value_;
+		AddDropdown();
+	}
+	void AddDropdown(){
+		parent.setSize(button_size);
+		IMText first_option(current_value, client_connect_font);
+		first_option.setZOrdering(2);
+		parent.setElement(first_option);
+		parent.addLeftMouseClickBehavior(IMFixedMessageOnClick("activate_dropdown"), "");
+		IMImage background(white_background);
+		background.setZOrdering(0);
+		background.setSize(button_size - button_size_offset);
+		background.setColor(vec4(0,0,0,0.75));
+		parent.addFloatingElement(background, "background", vec2(button_size_offset / 2.0f));
+	}
+	void SetNewValue(string value_){
+		current_value = value_;
+	}
+	void Deactivate(){
+		parent.clearLeftMouseClickBehaviors();
+		parent.clear();
+		AddDropdown();
+	}
+	void Activate(){
+		parent.clearLeftMouseClickBehaviors();
+		parent.clear();
+		
+		IMContainer options_holder(button_size.x, button_size.y);
+		IMDivider options_divider("options_divider", DOVertical);
+		options_holder.addFloatingElement(options_divider, "options_divider", vec2(button_size_offset / 2.0f));
+		
+		IMImage main_background(white_background);
+		main_background.setClip(false);
+		main_background.setZOrdering(4);
+		main_background.setSize(vec2(button_size.x, button_size.y * options.size()));
+		main_background.setColor(vec4(0,0,0,0.75));
+		options_holder.addFloatingElement(main_background, "option_background", vec2(button_size_offset / 2.0f));
+		
+		for(uint i = 0; i < options.size(); i++){
+			IMContainer option_holder(button_size.x, button_size.y);
+			option_holder.sendMouseOverToChildren(true);
+			IMText option_label(options[i], client_connect_font);
+			option_label.addMouseOverBehavior(mouseover_fontcolor, "");
+			option_holder.addLeftMouseClickBehavior(IMFixedMessageOnClick("option_chosen", options[i]), "");
+			option_label.setZOrdering(6);
+			option_holder.setElement(option_label);
+			
+			IMImage background(white_background);
+			background.setZOrdering(4);
+			background.setSize(button_size - button_size_offset);
+			background.setColor(vec4(0,0,0,0.75));
+			option_holder.addFloatingElement(background, "option_background", vec2(button_size_offset / 2.0f));
+			options_divider.append(option_holder);
+		}
+		
+		parent.setElement(options_holder);
 	}
 }
 
@@ -216,6 +285,7 @@ class ServerRetriever{
 			checked_online_servers = true;
 			checking_servers = false;
 			server_index = 0;
+			RefreshUI();
 		}
 	}
 	void CheckOnlineServers(){
