@@ -28,6 +28,7 @@ uint8 UpdateCharacter = 9;
 uint8 Error = 10;
 uint8 ServerInfo = 11;
 uint8 LevelList = 12;
+uint8 PlayerList = 13;
 
 uint retriever_socket = SOCKET_ID_INVALID;
 uint main_socket = SOCKET_ID_INVALID;
@@ -47,6 +48,7 @@ class ServerConnectionInfo{
 	bool valid = false;
 	double latency;
 	array<LevelInfo@> levels;
+	array<PlayerInfo@> players;
 	ServerConnectionInfo(string address_, int port_){
 		address = address_;
 		port = port_;
@@ -64,6 +66,15 @@ class LevelInfo{
 	}
 }
 
+class PlayerInfo{
+	string player_username;
+	string player_character;
+	PlayerInfo(string player_username_, string player_character_){
+		player_username = player_username_;
+		player_character = player_character_;
+	}
+}
+
 class ServerRetriever{
 	bool checking_servers = false;
 	int max_connect_tries = 5;
@@ -74,15 +85,20 @@ class ServerRetriever{
 	uint64 start_time;
 	array<ServerConnectionInfo@> online_servers;
 	bool getting_server_info = false;
+	bool getting_player_list = false;
 	bool checked_online_servers = false;
 	bool getting_level_list = false;
 	bool got_level_list = false;
+	bool got_player_list = false;
 	void Update(){
 		if(getting_server_info){
 			UpdateGetServerInfo();
 		}
 		else if(getting_level_list){
 			UpdateGetLevelList();
+		}
+		else if(getting_player_list){
+			UpdateGetPlayerList();
 		}
 		else if(checking_servers){
 			UpdateCheckingServers();
@@ -120,6 +136,23 @@ class ServerRetriever{
 	}
 	void UpdateGetServerInfo(){
 		
+	}
+	void UpdateGetPlayerList(){
+		timer += time_step;
+		//Every interval check for a connection
+		if(timer > connect_try_interval){
+			timer = 0.0f;
+			if( main_socket == SOCKET_ID_INVALID ) {
+				Log( warning, "Socket is closed, can't get player list!");
+			}
+			if( IsValidSocketTCP(main_socket) ){
+				Log(info, "Send PlayerList!");
+				array<uint8> playerlist_message = {PlayerList};
+				SocketTCPSend(main_socket, playerlist_message);
+				Print("Send PlayerList\n");
+				getting_player_list = false;
+			}
+		}
 	}
 	void UpdateCheckingServers(){
 		if(server_index >= int(server_list.size())){
@@ -171,6 +204,11 @@ class ServerRetriever{
 		got_level_list = true;
 		RefreshUI();
 	}
+	void SetPlayerList(array<PlayerInfo@> players_){
+		current_server.players = players_;
+		got_player_list = true;
+		RefreshUI();
+	}
 	void GetNextServer(){
 		server_index++;
 		if(server_index >= int(server_list.size())){
@@ -188,6 +226,13 @@ class ServerRetriever{
 	void GetLevelList(){
 		if(!getting_level_list && !got_level_list){
 			getting_level_list = true;
+		}
+	}
+	void GetPlayerList(){
+		Print("GetPlayerList " + getting_player_list + " " + got_player_list + "\n");
+		if(!getting_player_list && !got_player_list){
+			getting_player_list = true;
+			Print("getting_player_list " + getting_player_list + "\n");
 		}
 	}
 }

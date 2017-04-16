@@ -156,6 +156,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		Log(info, "level_name: " + level_name);
 		Log(info, "interval: " + interval);
 		RemoveUI();
+		currentUIState++;
 	}
 	else if(message_type == Message){
 		Log(info, "Incoming: " + "Message Command");
@@ -291,6 +292,17 @@ void ProcessIncomingMessage(array<uint8>@ data){
 			levels.insertLast(LevelInfo(level_name, level_path, nr_players));
 		}
 		server_retriever.SetLevelList(levels);
+	}
+	else if(message_type == PlayerList){
+		Log(info, "Incoming: " + "PlayerList");
+		array<PlayerInfo@> players;
+		while(data_index < int(data.size() - 1)){
+			string player_username = GetString(data, data_index);
+			string player_character = GetString(data, data_index);
+			Log(info, "player_username " + player_username + " player_character " + player_character);
+			players.insertLast(PlayerInfo(player_username, player_character));
+		}
+		server_retriever.SetPlayerList(players);
 	}
 	else{
 		//DisplayError("Unknown Message", "Unknown incomming message: " + message_type);
@@ -821,7 +833,84 @@ void AddLevelListUI(){
 }
 
 void AddPlayerListUI(){
+	cc_ui_added = true;
+	level.Execute("has_gui = true;");
+	vec2 menu_size(1000, 50);
+	vec4 background_color(0,0,0,0.5);
+	vec2 connect_button_size(1000, 60);
+	float button_size_offset = 10.0f;
+	int player_name_width = 500;
+	int player_character_width = 200;
 	
+	server_retriever.GetPlayerList();
+	
+	IMContainer menu_container(menu_size.x, menu_size.y);
+	menu_container.showBorder();
+	menu_container.setAlignment(CACenter, CATop);
+	IMDivider menu_divider("menu_divider", DOVertical);
+	menu_container.setElement(menu_divider);
+	
+	menu_divider.appendSpacer(10);
+	
+	for(uint i = 0; i < current_server.players.size(); i++){
+		IMContainer container(connect_button_size.x, connect_button_size.y);
+		container.sendMouseOverToChildren(true);
+		IMDivider button_divider("button_divider", DOHorizontal);
+		container.setElement(button_divider);
+	
+		menu_divider.append(container);
+		
+		//The player username
+		IMContainer playername_container(player_name_width);
+		IMText player_name_label(current_server.players[i].player_username, client_connect_font_small);
+		player_name_label.setZOrdering(4);
+		playername_container.setElement(player_name_label);
+		button_divider.append(playername_container);
+		
+		//The player character
+		IMContainer player_character_container(player_character_width);
+		IMText player_character_label(current_server.players[i].player_character, client_connect_font_small);
+		player_character_label.setZOrdering(4);
+		player_character_label.addMouseOverBehavior(mouseover_fontcolor, "");
+		player_character_container.setElement(player_character_label);
+		button_divider.append(player_character_container);
+		
+		IMImage button_background(white_background);
+		button_background.setZOrdering(0);
+		button_background.setSize(connect_button_size - button_size_offset);
+		button_background.setColor(vec4(0,0,0,0.75));
+		container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
+	}
+	
+	if(connected_to_server){
+		//Disconnect button
+		IMContainer button_container(connect_button_size.x, connect_button_size.y);
+		button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("disconnect"), "");
+		menu_divider.append(button_container);
+		
+		IMText connect_text("Disconnect from server.", client_connect_font);
+		connect_text.addMouseOverBehavior(mouseover_fontcolor, "");
+		connect_text.setZOrdering(3);
+		button_container.setElement(connect_text);
+		
+		IMImage button_background(white_background);
+		button_background.setZOrdering(0);
+		button_background.setSize(connect_button_size - button_size_offset);
+		button_background.setColor(vec4(0,0,0,0.75));
+		button_container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
+	}
+	//The errors are put in this divider
+	@error_divider = IMDivider("error_divider", DOVertical);
+	menu_divider.append(error_divider);
+	
+	//The main background
+	IMImage background(white_background);
+	background.setColor(background_color);
+	background.setSize(vec2(menu_size.x, 1000));
+	menu_container.addFloatingElement(background, "background", vec2(0));
+	imGUI.getMain().setSize(vec2(2560, 1000));
+	/*imGUI.getMain().setAlignment(CACenter, CACenter);*/
+	imGUI.getMain().setElement(menu_container);
 }
 
 void PostInit(){
@@ -972,8 +1061,6 @@ void PreConnectedKeyChecks(){
 			server_retriever.online_servers.resize(0);
 		}else{
 			AddUI();
-			//TODO just for debugging
-			/*currentUIState++;*/
 		}
     }
 	else if(GetInputPressed(ReadCharacter(player_id).controller_id, "f5")){
@@ -1011,13 +1098,9 @@ void KeyChecks(){
 		if(cc_ui_added){
 			Print("removecleintconnect\n");
 			RemoveUI();
-			server_retriever.server_index = 0;
-			server_retriever.online_servers.resize(0);
 		}else{
 			Print("addcleintconnect\n");
-			AddUsernameUI();
-			start_adding_cc_ui = true;
-			server_retriever.checking_servers = true;
+			AddUI();
 		}
     }
 }
