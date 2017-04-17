@@ -161,7 +161,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		Log(info, "level_name: " + level_name);
 		Log(info, "interval: " + interval);
 		RemoveUI();
-		currentUIState++;
+		NextUIState();
 	}
 	else if(message_type == Message){
 		Log(info, "Incoming: " + "Message Command");
@@ -408,7 +408,6 @@ void AddUsernameUI(){
 	float button_size_offset = 10.0f;
 	
 	IMContainer menu_container(menu_size.x, menu_size.y);
-	menu_container.showBorder();
 	menu_container.setAlignment(CACenter, CATop);
 	IMDivider menu_divider("menu_divider", DOVertical);
 	menu_container.setElement(menu_divider);
@@ -485,7 +484,7 @@ void AddUsernameUI(){
 		parent_divider.append(character_label);
 		divider.append(parent_container);
 		
-		Dropdown new_dropdown(character_options, character, parent_container);
+		Dropdown new_dropdown(character_options, character_names, character, parent_container);
 		@dropdown = @new_dropdown;
 		
 		menu_divider.append(container);
@@ -546,7 +545,6 @@ void AddServerListUI(){
 	server_retriever.CheckOnlineServers();
 	
 	IMContainer menu_container(menu_size.x, menu_size.y);
-	menu_container.showBorder();
 	menu_container.setAlignment(CACenter, CATop);
 	IMDivider menu_divider("menu_divider", DOVertical);
 	menu_container.setElement(menu_divider);
@@ -698,7 +696,6 @@ void AddLevelListUI(){
 	server_retriever.GetLevelList();
 	
 	IMContainer menu_container(menu_size.x, menu_size.y);
-	menu_container.showBorder();
 	menu_container.setAlignment(CACenter, CATop);
 	IMDivider menu_divider("menu_divider", DOVertical);
 	menu_container.setElement(menu_divider);
@@ -877,16 +874,53 @@ void AddPlayerListUI(){
 	server_retriever.GetPlayerList();
 	
 	IMContainer menu_container(menu_size.x, menu_size.y);
-	menu_container.showBorder();
 	menu_container.setAlignment(CACenter, CATop);
 	IMDivider menu_divider("menu_divider", DOVertical);
 	menu_container.setElement(menu_divider);
 	
 	menu_divider.appendSpacer(10);
 	
+	{
+		//Choose a username and character
+		IMContainer container(connect_button_size.x, connect_button_size.y);
+		menu_divider.append(container);
+		IMDivider divider("title_divider", DOHorizontal);
+		divider.setZOrdering(4);
+		container.setElement(divider);
+		IMText title("Player List.", client_connect_font);
+		divider.append(title);
+		//Background
+		IMImage background(brushstroke_background);
+		background.setZOrdering(2);
+		background.setClip(false);
+		background.setSize(vec2(300, 60));
+		background.setAlpha(0.85f);
+		container.addFloatingElement(background, "background", vec2(container.getSizeX() / 2.0f - background.getSizeX() / 2.0f,0));
+	}
+
+	//Server browser titlebar
+	IMContainer titlebar_container(connect_button_size.x, connect_button_size.y);
+	menu_divider.append(titlebar_container);
+	IMDivider titlebar_divider("titlebar_divider", DOHorizontal);
+	titlebar_divider.setZOrdering(3);
+	titlebar_container.setElement(titlebar_divider);
+	
+	IMContainer name_label_container(player_name_width);
+	IMText name_label("Player name", client_connect_font);
+	name_label.setZOrdering(3);
+	name_label_container.setElement(name_label);
+	titlebar_divider.append(name_label_container);
+	
+	IMContainer character_label_container(player_character_width);
+	IMText character_label("Player character", client_connect_font);
+	character_label.setZOrdering(3);
+	character_label_container.setElement(character_label);
+	titlebar_divider.append(character_label_container);
+	
+	menu_divider.appendSpacer(10);
+	
 	for(uint i = 0; i < current_server.players.size(); i++){
 		IMContainer container(connect_button_size.x, connect_button_size.y);
-		container.sendMouseOverToChildren(true);
 		IMDivider button_divider("button_divider", DOHorizontal);
 		container.setElement(button_divider);
 	
@@ -901,9 +935,14 @@ void AddPlayerListUI(){
 		
 		//The player character
 		IMContainer player_character_container(player_character_width);
-		IMText player_character_label(current_server.players[i].player_character, client_connect_font_small);
+		int character_name_index = character_options.find(current_server.players[i].player_character);
+		IMText player_character_label("", client_connect_font_small);
+		if(character_name_index != -1){
+			player_character_label.setText(character_names[character_name_index]);
+		}else{
+			player_character_label.setText(current_server.players[i].player_character);
+		}
 		player_character_label.setZOrdering(4);
-		player_character_label.addMouseOverBehavior(mouseover_fontcolor, "");
 		player_character_container.setElement(player_character_label);
 		button_divider.append(player_character_container);
 		
@@ -913,6 +952,8 @@ void AddPlayerListUI(){
 		button_background.setColor(vec4(0,0,0,0.75));
 		container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
 	}
+	
+	menu_divider.appendSpacer(10);
 	
 	if(connected_to_server){
 		//Disconnect button
@@ -952,7 +993,6 @@ void PostInit(){
 }
 
 void Update(int paused) {
-	imGUI.update();
 	server_retriever.Update();
 	UpdateConnectedIcon();
 	username_field.Update();
@@ -982,20 +1022,18 @@ void Update(int paused) {
 		else if( message.name == "server_chosen" ){
 			int index = message.getInt(0);
 			@current_server = server_retriever.online_servers[index];
-			currentUIState++;
+			NextUIState();
 	        RefreshUI();
 		}
 		else if( message.name == "level_chosen" ){
 			HandleLevelChosen(message.getString(0), message.getString(1));
 		}
 		else if( message.name == "previous_ui" ){
-			if(currentUIState > 0){
-				currentUIState--;
-		        RefreshUI();
-			}
+			PreviousUIState();
+			RefreshUI();
 		}
 		else if( message.name == "next_ui" ){
-			currentUIState++;
+			NextUIState();
 			RefreshUI();
 		}
 		else if( message.name == "disconnect" ){
@@ -1036,6 +1074,21 @@ void Update(int paused) {
 		SendData(new_data);
 	}
 	UpdateInput();
+	imGUI.update();
+}
+
+void NextUIState(){
+	if(currentUIState != PlayerListUI){
+		currentUIState++;
+		server_retriever.ResetGetters();
+	}
+}
+
+void PreviousUIState(){
+	if(currentUIState != 0){
+		currentUIState--;
+		server_retriever.ResetGetters();
+	}
 }
 
 void UpdateConnectedIcon(){
@@ -1575,7 +1628,6 @@ class Chat{
 		message_divider.appendSpacer(left_offset);
 		message_divider.setZOrdering(2);
 		background.setZOrdering(0);
-		background.showBorder();
 		background.setBorderColor(vec4(0,0,0,0.25));
 		background.setBorderSize(1.0f);
 		background.setColor(chat_message.background_color);

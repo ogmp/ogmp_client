@@ -13,7 +13,8 @@ string turner = "Data/Characters/ogmp/turner.xml";
 
 array<string> adjectives = {"Little", "Old", "Bad", "Brave", "Handsome", "Quaint", "Prickly", "Nervous", "Jolly", "Gigantic", "Itchy", "Thoughtless", "Crooked", "Hissing", "Slow", "Flaky", "Damaged"};
 array<string> nouns = {"Cat", "Walnut", "Bird", "Cookie", "Aardvark", "Boy", "Dame", "Kitty", "Person", "Cow", "Dragon", "Investor", "Cook", "Frenchman", "Priest", "Tiger", "Zebra", "Raven", "David"};
-array<string> character_options = {"turner", "guard", "raider_rabbit", "pale_turner", "guard2", "base_guard", "cat", "female_rabbit_1"};
+array<string> character_names = {"Turner", "Guard", "Raider Rabbit", "Pale Turner", "Cat", "Female Rabbit", "Rat", "Female Rat", "Hooded Rat", "Light Armored Dog Big", "Rabbot", "Wolf"};
+array<string> character_options = {"turner", "guard", "raider_rabbit", "pale_turner", "cat", "female_rabbit_1", "rat", "female_rat", "hooded_rat", "lt_dog_big", "rabbot", "wolf"};
 
 //Message types 
 uint8 SignOn = 0;
@@ -60,17 +61,21 @@ class Dropdown{
 	vec2 button_size(500, 60);
 	float button_size_offset = 10.0f;
 	array<string> options;
+	array<string> option_names;
 	string current_value;
 	IMContainer@ parent;
-	Dropdown(array<string> options_, string current_value_, IMContainer@ parent_){
+	int index = 0;
+	Dropdown(array<string> options_, array<string> option_names_, string current_value_, IMContainer@ parent_){
 		@parent = parent_;
 		options = options_;
+		option_names = option_names_;
 		current_value = current_value_;
+		index = options.find(current_value);
 		AddDropdown();
 	}
 	void AddDropdown(){
 		parent.setSize(button_size);
-		IMText first_option(current_value, client_connect_font);
+		IMText first_option(option_names[index], client_connect_font);
 		first_option.setZOrdering(2);
 		parent.setElement(first_option);
 		parent.addLeftMouseClickBehavior(IMFixedMessageOnClick("activate_dropdown"), "");
@@ -82,6 +87,7 @@ class Dropdown{
 	}
 	void SetNewValue(string value_){
 		current_value = value_;
+		index = options.find(current_value);
 	}
 	void Deactivate(){
 		parent.clearLeftMouseClickBehaviors();
@@ -106,7 +112,7 @@ class Dropdown{
 		for(uint i = 0; i < options.size(); i++){
 			IMContainer option_holder(button_size.x, button_size.y);
 			option_holder.sendMouseOverToChildren(true);
-			IMText option_label(options[i], client_connect_font);
+			IMText option_label(option_names[i], client_connect_font);
 			option_label.addMouseOverBehavior(mouseover_fontcolor, "");
 			option_holder.addLeftMouseClickBehavior(IMFixedMessageOnClick("option_chosen", options[i]), "");
 			option_label.setZOrdering(6);
@@ -155,8 +161,8 @@ class ServerRetriever{
 	array<ServerConnectionInfo@> online_servers;
 	bool getting_server_info = false;
 	bool getting_player_list = false;
-	bool checked_online_servers = false;
 	bool getting_level_list = false;
+	bool checked_online_servers = false;
 	bool got_level_list = false;
 	bool got_player_list = false;
 	void Update(){
@@ -172,6 +178,12 @@ class ServerRetriever{
 		else if(checking_servers){
 			UpdateCheckingServers();
 		}
+	}
+	void ResetGetters(){
+		checked_online_servers = false;
+		got_level_list = false;
+		got_player_list = false;
+		online_servers.resize(0);
 	}
 	void UpdateGetLevelList(){
 		timer += time_step;
