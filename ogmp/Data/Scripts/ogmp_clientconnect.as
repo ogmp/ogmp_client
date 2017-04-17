@@ -147,7 +147,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		connected_to_server = true;
 		interval = 1.0 / refresh_rate;
 		
-		MovementObject@ player = ReadCharacter(player_id);
+		MovementObject@ player = ReadCharacterID(player_id);
 		player.Execute("SwitchCharacter(\"Data/Characters/" + character + ".xml\");");
 		
 		chat.AddMessage(welcome_message, "server", true);
@@ -162,6 +162,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		Log(info, "interval: " + interval);
 		RemoveUI();
 		NextUIState();
+		DisableDebugKeys();
 	}
 	else if(message_type == Message){
 		Log(info, "Incoming: " + "Message Command");
@@ -273,7 +274,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 	}
 	else if(message_type == LoadPosition){
 		Log(info, "Incoming: " + "LoadPosition");
-		MovementObject@ player = ReadCharacter(player_id);
+		MovementObject@ player = ReadCharacterID(player_id);
 		player.position.x = GetFloat(data, data_index);
 		player.position.y = GetFloat(data, data_index);
 		player.position.z = GetFloat(data, data_index);
@@ -325,10 +326,19 @@ MovementObject@ GetRemotePlayer(string username){
 	return null;
 }
 
+void DisableDebugKeys(){
+	if(GetConfigValueBool("debug_keys")){
+		SetConfigValueBool("debug_keys", false);
+		SaveConfig();
+		ReloadStaticValues();
+	}
+}
+
 void CreateRemotePlayer(string username, string team, string character, vec3 position){
-	int obj_id = CreateObject(turner);
+	int obj_id = CreateObject("Data/Characters/ogmp/" + character + ".xml");
 	remote_players.insertLast(RemotePlayer(username, team, obj_id));
-	MovementObject@ remote_player = ReadCharacterID(obj_id);
+	MovementObject@ remote_player = GetRemotePlayer(username);
+	remote_player.Execute("MPUsername = \"" + username + "\";");
 	Object@ object = ReadObjectFromID(obj_id);
 	ScriptParams@ params = object.GetScriptParams();
 	params.SetString("Teams", team);
@@ -338,12 +348,16 @@ void CreateRemotePlayer(string username, string team, string character, vec3 pos
 void RemoveRemotePlayer(string username){
 	for(uint i = 0; i < remote_players.size(); i++){
 		MovementObject@ remote_player = ReadCharacterID(remote_players[i].object_id);
-		remote_player.Execute("situation.clear();");
 		if(remote_players[i].username == username){
+			remote_player.Execute("MPRemoveBillboard();");
 			DeleteObjectID(remote_players[i].object_id);
 			remote_players.removeAt(i);
+		}else{
+			remote_player.Execute("situation.clear();");
 		}
 	}
+	MovementObject@ player = ReadCharacterID(player_id);
+	player.Execute("situation.clear();");
 }
 
 void PrintByteArray(array<uint8> data){
@@ -898,7 +912,7 @@ void AddPlayerListUI(){
 		container.addFloatingElement(background, "background", vec2(container.getSizeX() / 2.0f - background.getSizeX() / 2.0f,0));
 	}
 
-	//Server browser titlebar
+	//Player list titlebar
 	IMContainer titlebar_container(connect_button_size.x, connect_button_size.y);
 	menu_divider.append(titlebar_container);
 	IMDivider titlebar_divider("titlebar_divider", DOHorizontal);
@@ -1010,6 +1024,7 @@ void Update(int paused) {
 	    update_timer += time_step;
         ReceiveServerUpdate();
 		KeyChecks();
+		UpdatePlayerUsernameBillboard();
     }else{
         PreConnectedKeyChecks();
         ConnectToServer();
@@ -1072,9 +1087,18 @@ void Update(int paused) {
 		/*ReadServerList();*/
 		array<uint8> new_data = {ServerInfo};
 		SendData(new_data);
+		MovementObject@ player = ReadCharacterID(player_id);
+		
+		DebugDrawText(player.position, "Test", 5.0f, true, _persistent);
 	}
 	UpdateInput();
 	imGUI.update();
+}
+
+void UpdatePlayerUsernameBillboard(){
+	MovementObject@ player = ReadCharacterID(player_id);
+	vec3 draw_offset = vec3(0.0f, 1.25f, 0.0f);
+	DebugDrawText(player.position + draw_offset, username, 50.0f, false, _delete_on_update);
 }
 
 void NextUIState(){
@@ -1154,7 +1178,7 @@ void SetWindowDimensions(int w, int h)
 }
 
 void PreConnectedKeyChecks(){
-    if(GetInputPressed(ReadCharacter(player_id).controller_id, "f12") && !trying_to_connect){
+    if(GetInputPressed(ReadCharacterID(player_id).controller_id, "f12") && !trying_to_connect){
 		Print("pressed f12\n");
 		if(cc_ui_added){
 			RemoveUI();
@@ -1164,28 +1188,12 @@ void PreConnectedKeyChecks(){
 			AddUI();
 		}
     }
-	else if(GetInputPressed(ReadCharacter(player_id).controller_id, "f5")){
-		
-	}
 }
 
 void KeyChecks(){
-	int controller_id = ReadCharacter(player_id).controller_id;
+	int controller_id = ReadCharacterID(player_id).controller_id;
 
-	if(GetInputPressed(controller_id, "return")) {
-		//TODO closing and opening chat.
-	}
-	else if(GetInputDown(controller_id, "f10")) {
-		if(!showing_playerlist) {
-			//TODO show player list while f10 is being pressed
-			showing_playerlist = true;
-		}
-	}
-	else if(showing_playerlist && !GetInputDown(controller_id, "f10")) {
-		//TODO don't show playerlist anymore.
-		showing_playerlist = false;
-	}
-	else if(GetInputPressed(controller_id, "k")) {
+	if(GetInputPressed(controller_id, "k")) {
 		if((permanent_health > 0) && (temp_health > 0)) {
 			SendSavePosition();
 		}
@@ -1253,7 +1261,7 @@ void SendLoadPosition(){
 void SendSignOn(){
 	array<uint8> message;
 	message.insertLast(SignOn);
-	MovementObject@ player = ReadCharacter(player_id);
+	MovementObject@ player = ReadCharacterID(player_id);
 	vec3 position = player.position;
 		
 	addToByteArray(username, @message);
@@ -1394,7 +1402,7 @@ void SendPlayerUpdate(){
 	
 	array<uint8> message;
 	message.insertLast(UpdateGame);
-	MovementObject@ player = ReadCharacter(player_id);
+	MovementObject@ player = ReadCharacterID(player_id);
 	vec3 position = player.position;
 	
 	addToByteArray(player.position.x, @message);
@@ -1450,7 +1458,7 @@ vec3 GetPlayerTargetVelocity() {
         right.x = -right .z;
         right.z = side;
     }
-	int controller_id = ReadCharacter(player_id).controller_id;
+	int controller_id = ReadCharacterID(player_id).controller_id;
 
     target_velocity -= GetMoveYAxis(controller_id)*camera.GetFlatFacing();
     target_velocity += GetMoveXAxis(controller_id)*right;
@@ -1469,8 +1477,8 @@ void ReceiveServerUpdate(){
 }
 
 void UpdatePlayerVariables(){
-	int controller_id = ReadCharacter(player_id).controller_id;
-	MovementObject@ player = ReadCharacter(player_id);
+	MovementObject@ player = ReadCharacterID(player_id);
+	int controller_id = player.controller_id;
     MPWantsToCrouch = GetInputDown(controller_id, "crouch");
     MPWantsToJump = GetInputDown(controller_id, "jump");
     MPWantsToAttack = GetInputDown(controller_id, "attack");
@@ -1533,7 +1541,7 @@ int GetPlayerCharacterID() {
     for(int i=0; i<num; ++i){
         MovementObject@ char = ReadCharacter(i);
         if(char.controlled){
-            return i;
+            return char.GetID();
         }
     }
     return -1;
@@ -1657,7 +1665,8 @@ class Chat{
 		chat_divider.append(whole_divider);
 	}
 	void AddChatInput(){
-		MovementObject@ player = ReadCharacter(player_id);
+		Print("add chat input\n");
+		MovementObject@ player = ReadCharacterID(player_id);
 		player.velocity = vec3(0);
 		player.Execute("SetState(_ground_state);");
 		player.Execute("this_mo.SetAnimation(\"Data/Animations/r_actionidle.anm\", 20.0f);");
@@ -1687,7 +1696,13 @@ class Chat{
 		chat_query_divider.append(chat_message_label);
 		chat_query_divider.append(cursor);
 		chat_input_divider.append(new_chat_container);
-		initial_sequence_id = 0;
+		//Make sure the last pressed key is not registered by the chat on create. Wait for input.
+		array<KeyboardPress> inputs = GetRawKeyboardInputs();
+		if(inputs.size() < 1){
+			initial_sequence_id = 0;
+		}else{
+			initial_sequence_id = inputs[inputs.size() -1].s_id;
+		}
 		chat_input_shown = true;
 	}
 	void SetCurrentChatMessage(){
@@ -1704,8 +1719,9 @@ class Chat{
 		chat_query_divider.append(cursor);
 	}
 	void RemoveChatInput(){
+		Print("remove chat input\n");
 		if(chat_input_shown){
-			MovementObject@ player = ReadCharacter(player_id);
+			MovementObject@ player = ReadCharacterID(player_id);
 			player.Execute("SetState(_movement_state);");
 			chat_input_divider.clear();
 			new_chat_message = "";
@@ -1724,9 +1740,9 @@ class Chat{
 						uint max_query_length = 60;
 						bool get_upper_case = false;
 						
-						Print("keycode " + keycode + "\n");
+						/*Print("keycode " + keycode + "\n");*/
 						
-						if(GetInputDown(ReadCharacter(player_id).controller_id, "shift")){
+						if(GetInputDown(ReadCharacterID(player_id).controller_id, "shift")){
 							get_upper_case =true;
 						}
 						

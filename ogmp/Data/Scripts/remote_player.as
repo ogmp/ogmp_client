@@ -4,6 +4,8 @@
 float grab_key_time;
 bool listening = false;
 bool delay_jump;
+string MPUsername = "";
+int username_billboard = -1;
 
 bool MPWantsToCrouch = false;
 bool MPWantsToJump = false;
@@ -106,6 +108,23 @@ void UpdateBrain(const Timestep &in ts){
     if(delay_jump && !GetInputDown(this_mo.controller_id, "jump")){
         delay_jump = false;
     }
+	if(MPUsername != ""){
+		UpdatePlayerUsernameBillboard();
+	}
+}
+
+void UpdatePlayerUsernameBillboard(){
+	vec3 draw_offset = vec3(0.0f, 1.25f, 0.0f);
+	if(username_billboard != -1){
+		DebugDrawRemove(username_billboard);
+	}
+	username_billboard = DebugDrawText(this_mo.position + draw_offset, MPUsername, 50.0f, true, _persistent);
+}
+
+void MPRemoveBillboard(){
+	if(username_billboard != -1){
+		DebugDrawRemove(username_billboard);
+	}
 }
 
 void AIEndAttack(){
