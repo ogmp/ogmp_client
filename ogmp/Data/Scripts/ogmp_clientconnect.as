@@ -82,40 +82,38 @@ void Init(string p_level_name) {
 	imGUI.getHeader().setAlignment(CALeft, CACenter);
 	character = character_options[0];
 	chat.Initialize();
-	HandleConnectOnInit();
 }
 
-void HandleConnectOnInit(){
+bool HandleConnectOnInit(){
 	if(StorageHasInt32("ogmp_connect")){
-		Print("Found ogmp connect " + StorageGetInt32("ogmp_connect") + "\n");
 		if(StorageGetInt32("ogmp_connect") == 1){
 			StorageSetInt32("ogmp_connect", -1);
-			@current_server = ServerConnectionInfo(StorageGetString("ogmp_address"), StorageGetInt32("ogmp_port"));
+			ServerConnectionInfo new_connection(StorageGetString("ogmp_address"), StorageGetInt32("ogmp_port"));
+			@current_server = @new_connection;
+			server_retriever.online_servers.insertLast(new_connection);
 			username = StorageGetString("ogmp_username");
 			character = StorageGetString("ogmp_character");
 			level_name = StorageGetString("ogmp_level_name");
+			retriever_socket = CreateSocketTCP(current_server.address, current_server.port);
 			trying_to_connect = true;
+			return true;
+		}else{
+			return false;
 		}
+	}else{
+		return false;
 	}
 }
 
 void IncomingTCPData(uint socket, array<uint8>@ data) {
-	if(socket == retriever_socket){
-		Log(info, "Some sata came in from the retriever socket");
-	}
-	Log(info, "Data in size " + data.length() );
     for( uint i = 0; i < data.length(); i++ ) {
 		data_collection.insertLast(data[i]);
-        /*Print(data[i] + " ");*/
     }
-	/*Print("\n");
-	PrintByteArray(data);*/
 }
 
 void ReadServerList(){
 	for(uint i = 0; i < server_list.size(); i++){
 		if( retriever_socket == SOCKET_ID_INVALID ) {
-            Log( info, "Trying to connect" );
 			retriever_socket = CreateSocketTCP(server_list[i].address, server_list[i].port);
             if( retriever_socket != SOCKET_ID_INVALID ) {
                 Log( info, "Connected " + server_list[i].address );
@@ -124,10 +122,8 @@ void ReadServerList(){
             }
         }
 		if( !IsValidSocketTCP(retriever_socket) ){
-			Log(info, "invalid");
 			retriever_socket = SOCKET_ID_INVALID;
 		}else{
-			Log(info, "valid");
 			retriever_socket = SOCKET_ID_INVALID;
 		}
 	}
@@ -135,7 +131,6 @@ void ReadServerList(){
 
 void ProcessIncomingMessage(array<uint8>@ data){
 	uint8 message_type = data[0];
-	Log(info, "Message type : " + message_type);
 	int data_index = 1;
 	if(message_type == SignOn){
 		float refresh_rate = GetFloat(data, data_index);
@@ -146,26 +141,15 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		level_name = GetString(data, data_index);
 		connected_to_server = true;
 		interval = 1.0 / refresh_rate;
-		
+
 		MovementObject@ player = ReadCharacterID(player_id);
 		player.Execute("SwitchCharacter(\"Data/Characters/" + character + ".xml\");");
-		
 		chat.AddMessage(welcome_message, "server", true);
-		
-		Log(info, "Incoming: " + "SignOn Command");
-		Log(info, "refresh_rate: " + refresh_rate);
-		Log(info, "username: " + username);
-		Log(info, "welcome_message: " + welcome_message);
-		Log(info, "team: " + team);
-		Log(info, "character: " + character);
-		Log(info, "level_name: " + level_name);
-		Log(info, "interval: " + interval);
 		RemoveUI();
-		NextUIState();
+		currentUIState = PlayerListUI;
 		DisableDebugKeys();
 	}
 	else if(message_type == Message){
-		Log(info, "Incoming: " + "Message Command");
 		string message_source = GetString(data, data_index);
 		string message_text = GetString(data, data_index);
 		bool notif = GetBool(data, data_index);
@@ -173,7 +157,6 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		chat.AddMessage(message_text, message_source, notif);
 	}
 	else if (message_type == SpawnCharacter){
-		Log(info, "Incoming: " + "SpawnCharacter Command");
 		string username = GetString(data, data_index);
 		string team = GetString(data, data_index);
 		string character = GetString(data, data_index);
@@ -183,19 +166,14 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		CreateRemotePlayer(username, team, character, vec3(pos_x, pos_y, pos_z));
 	}
 	else if (message_type == RemoveCharacter){
-		Log(info, "Incoming: " + "RemoveCharacter Command");
 		string username = GetString(data, data_index);
 		RemoveRemotePlayer(username);
 	}
 	else if (message_type == UpdateGame){
-		Log(info, "Incoming: " + "Update Command");
 	}
 	else if (message_type == UpdateSelf){
-		Log(info, "Incoming: " + "UpdateSelf Command");
 	}
 	else if (message_type == UpdateCharacter){
-		Log(info, "Incoming: " + "UpdateCharacter Command");
-		
 		string remote_username = GetString(data, data_index);
 		float remote_posx = GetFloat(data, data_index);
 		float remote_posy = GetFloat(data, data_index);
@@ -261,57 +239,65 @@ void ProcessIncomingMessage(array<uint8>@ data){
 			remote_player.Execute("state = " + remote_state + ";");
 			
 		}else{
-			Print("Can't find the user " + remote_username);
+			Log(error, "Can't find the user!");
 		}
 	}
 	else if (message_type == Error){
-		Log(info, "Incoming: " + "Error Command");
 		if(cc_ui_added){
-			error_divider.clear();
+			AddError(GetString(data, data_index));
+		}else{
+			@error_divider = IMDivider("error_divider", DOHorizontal);
+			
+			IMContainer container(1000, 50);
+			IMDivider divider("holder", DOVertical);
+			container.setElement(divider);
 			IMText error_message(GetString(data, data_index), error_font);
-			error_divider.append(error_message);
+			divider.append(error_message);
+			IMText instruction("Press F12 to start again.", client_connect_font);
+			divider.append(instruction);
+			//Background
+			IMImage background(white_background);
+			background.setZOrdering(0);
+			background.setSize(vec2(1000, 1000));
+			background.setColor(vec4(0,0,0,0.75));
+			container.addFloatingElement(background, "background", vec2(0.0f));
+			
+			error_divider.append(container);
+			imGUI.getMain().setElement(error_divider);
 		}
 	}
 	else if(message_type == LoadPosition){
-		Log(info, "Incoming: " + "LoadPosition");
 		MovementObject@ player = ReadCharacterID(player_id);
 		player.position.x = GetFloat(data, data_index);
 		player.position.y = GetFloat(data, data_index);
 		player.position.z = GetFloat(data, data_index);
 	}
 	else if(message_type == ServerInfo){
-		Log(info, "Incoming: " + "ServerInfo");
 		string server_name = GetString(data, data_index);
 		int nr_players = GetInt(data, data_index);
-		Log(info, "Server name: " + server_name);
-		Log(info, "Number of players: " + nr_players);
 		server_retriever.SetServerInfo(server_name, nr_players);
 	}
 	else if(message_type == LevelList){
-		Log(info, "Incoming: " + "LevelList");
 		array<LevelInfo@> levels;
 		while(data_index < int(data.size() - 1)){
 			string level_name = GetString(data, data_index);
 			string level_path = GetString(data, data_index);
 			int nr_players = GetInt(data, data_index);
-			Log(info, "name " + level_name + " path " + level_path + " nr_p " + nr_players);
 			levels.insertLast(LevelInfo(level_name, level_path, nr_players));
 		}
 		server_retriever.SetLevelList(levels);
 	}
 	else if(message_type == PlayerList){
-		Log(info, "Incoming: " + "PlayerList");
 		array<PlayerInfo@> players;
 		while(data_index < int(data.size() - 1)){
 			string player_username = GetString(data, data_index);
 			string player_character = GetString(data, data_index);
-			Log(info, "player_username " + player_username + " player_character " + player_character);
 			players.insertLast(PlayerInfo(player_username, player_character));
 		}
 		server_retriever.SetPlayerList(players);
 	}
 	else{
-		//DisplayError("Unknown Message", "Unknown incomming message: " + message_type);
+		Log(error, "Unknown incomming message: " + message_type);
 		PrintByteArray(data);
 	}
 }
@@ -369,7 +355,12 @@ void PrintByteArray(array<uint8> data){
 		Print(s);
     }
 	Print("\n");
-    /*Log(info, "Incoming: " + join(complete, ""));*/
+}
+
+void AddError(string message){
+	error_divider.clear();
+	IMText error_message(message, error_font);
+	error_divider.append(error_message);
 }
 
 void ReceiveMessage(string msg) {
@@ -380,7 +371,6 @@ void DrawGUI() {
 }
 
 void AddUI(){
-	Print("AddUI\n");
 	switch(currentUIState){
 		case UsernameUI:
 			AddUsernameUI();
@@ -401,14 +391,12 @@ void AddUI(){
 }
 
 void RemoveUI(){
-	Print("RemoveUI\n");
 	cc_ui_added = false;
 	level.Execute("has_gui = false;");
 	imGUI.getMain().clear();
 }
 
 void RefreshUI(){
-	Print("RefreshUI\n");
 	RemoveUI();
 	AddUI();
 }
@@ -420,13 +408,12 @@ void AddUsernameUI(){
 	vec4 background_color(0,0,0,0.5);
 	vec2 button_size(1000, 60);
 	float button_size_offset = 10.0f;
-	
+
 	IMContainer menu_container(menu_size.x, menu_size.y);
 	menu_container.setAlignment(CACenter, CATop);
 	IMDivider menu_divider("menu_divider", DOVertical);
 	menu_container.setElement(menu_divider);
-	/*menu_divider.showBorder();*/
-	
+
 	menu_divider.appendSpacer(10);
 	
 	{
@@ -463,7 +450,7 @@ void AddUsernameUI(){
 	username_divider.append(description_label);
 	
 	username_divider.appendSpacer(25);
-		
+	
 	IMText username_label(username, client_connect_font);
 	username_label.setZOrdering(2);
 	username_parent.append(username_label);
@@ -615,9 +602,7 @@ void AddServerListUI(){
 		
 		button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("server_chosen", i), "");
 		menu_divider.append(button_container);
-		
-		Print("name " + server_retriever.online_servers[i].server_name + "\n");
-		
+
 		//The server name
 		IMContainer servername_container(server_name_width);
 		IMText server_name(server_retriever.online_servers[i].server_name, client_connect_font_small);
@@ -652,7 +637,6 @@ void AddServerListUI(){
 	IMDivider info_divider("info_divider", DOHorizontal);
 	menu_divider.append(info_divider);
 	if(server_retriever.checking_servers){
-		Print("Getting more servers...\n");
 		IMText info("Getting more servers...", client_connect_font_small);
 		info_divider.append(info);
 	}else if(server_retriever.online_servers.size() == 0){
@@ -864,7 +848,7 @@ void AddLevelListUI(){
 	//The errors are put in this divider
 	@error_divider = IMDivider("error_divider", DOVertical);
 	menu_divider.append(error_divider);
-	
+
 	//The main background
 	IMImage background(white_background);
 	background.setColor(background_color);
@@ -1002,8 +986,11 @@ void AddPlayerListUI(){
 
 void PostInit(){
 	player_id = GetPlayerCharacterID();
-	//Create a random username from an adjactive and a noun.
-	username = adjectives[rand() % adjectives.length()] + nouns[rand() % nouns.length()];
+	bool auto_connected = HandleConnectOnInit();
+	if(!auto_connected){
+		//Create a random username from an adjactive and a noun.
+		username = adjectives[rand() % adjectives.length()] + nouns[rand() % nouns.length()];
+	}
 }
 
 void Update(int paused) {
@@ -1014,7 +1001,10 @@ void Update(int paused) {
 		PostInit();
         post_init_run = true;
     }
-
+	if(player_id == -1){
+		player_id = GetPlayerCharacterID();
+		return;
+	}
     if(connected_to_server){
 		if(update_timer > interval){
 			UpdatePlayerVariables();
@@ -1032,7 +1022,7 @@ void Update(int paused) {
 	// process any messages produced from the update
     while( imGUI.getMessageQueueSize() > 0 ) {
         IMMessage@ message = imGUI.getNextMessage();
-		Log( info, "Got processMessage " + message.name );
+		/*Log( info, "Got processMessage " + message.name );*/
 		if( message.name == "" ){return;}
 		else if( message.name == "server_chosen" ){
 			int index = message.getInt(0);
@@ -1052,7 +1042,6 @@ void Update(int paused) {
 			RefreshUI();
 		}
 		else if( message.name == "disconnect" ){
-			Log(info, "Received message to disconnect from server");
 	        DisconnectFromServer();
 			RemoveUI();
 		}
@@ -1085,13 +1074,19 @@ void Update(int paused) {
 		chat.AddMessage("Content" + rand(), "Person", false);*/
 		/*chat.AddMessage("Content" + rand(), username, false);*/
 		/*ReadServerList();*/
-		array<uint8> new_data = {ServerInfo};
-		SendData(new_data);
-		MovementObject@ player = ReadCharacterID(player_id);
 		
-		DebugDrawText(player.position, "Test", 5.0f, true, _persistent);
+		array<uint8> message = {SignOn};
+		SocketTCPSend(retriever_socket, message);
+		
+		/*array<uint8> new_data = {LevelList};
+		SendData(new_data);*/
+		//MovementObject@ player = ReadCharacterID(player_id);
+		
+		//DebugDrawText(player.position, "Test", 5.0f, true, _persistent);
 	}
-	UpdateInput();
+	if(connected_to_server){
+		UpdateInput();
+	}
 	imGUI.update();
 }
 
@@ -1117,13 +1112,11 @@ void PreviousUIState(){
 
 void UpdateConnectedIcon(){
 	if(connected_icon_state && !connected_to_server){
-		Print("Adding icon\n");
 		IMImage icon(disconnected_icon);
 		icon.setSize(vec2(100, 100));
 		imGUI.getHeader().setElement(icon);
 		connected_icon_state = false;
 	}else if(!connected_icon_state && connected_to_server){
-		Print("Adding icon\n");
 		IMImage icon(connected_icon);
 		icon.setSize(vec2(100, 100));
 		imGUI.getHeader().setElement(icon);
@@ -1132,14 +1125,16 @@ void UpdateConnectedIcon(){
 }
 
 void HandleLevelChosen(string chosen_level_name, string chosen_level_path){
-	Print("CHosen level name " + chosen_level_name + "\n");
-	Print("CHosen level path " + chosen_level_path + "\n");
-
 	if(chosen_level_path == level_path){
 		//Already on the level that the user want to join.
 		trying_to_connect = true;
 	}else{
 		if(FileExists(chosen_level_path)){
+			DestroySocketTCP(main_socket);
+			main_socket = SOCKET_ID_INVALID;
+			DestroySocketTCP(retriever_socket);
+			retriever_socket = SOCKET_ID_INVALID;
+
 			//Not yet on the level that the user want to join.
 			StorageSetInt32("ogmp_connect", 1);
 			StorageSetString("ogmp_level_name", chosen_level_name);
@@ -1150,7 +1145,7 @@ void HandleLevelChosen(string chosen_level_name, string chosen_level_path){
 			StorageSetInt32("ogmp_port", current_server.port);
 			LoadLevel(chosen_level_path);
 		}else{
-			DisplayError("error", "This map is not installed.");
+			AddError("This map is not installed.");
 		}
 	}
 }
@@ -1168,7 +1163,6 @@ void SeparateMessages(){
 		message.insertLast(data_collection[i]);
 	}
 	data_collection.removeRange(0, message_size + 1);
-	/*Print("Message size " + message.size() + "\n");*/
 	ProcessIncomingMessage(message);
 }
 
@@ -1179,7 +1173,6 @@ void SetWindowDimensions(int w, int h)
 
 void PreConnectedKeyChecks(){
     if(GetInputPressed(ReadCharacterID(player_id).controller_id, "f12") && !trying_to_connect){
-		Print("pressed f12\n");
 		if(cc_ui_added){
 			RemoveUI();
 			server_retriever.server_index = 0;
@@ -1192,6 +1185,10 @@ void PreConnectedKeyChecks(){
 
 void KeyChecks(){
 	int controller_id = ReadCharacterID(player_id).controller_id;
+	
+	if(chat.chat_input_shown){
+		return;
+	}
 
 	if(GetInputPressed(controller_id, "k")) {
 		if((permanent_health > 0) && (temp_health > 0)) {
@@ -1203,12 +1200,9 @@ void KeyChecks(){
 			SendLoadPosition();
 		}
 	}else if(GetInputPressed(controller_id, "f12")){
-		Print("pressed f12\n");
 		if(cc_ui_added){
-			Print("removecleintconnect\n");
 			RemoveUI();
 		}else{
-			Print("addcleintconnect\n");
 			AddUI();
 		}
     }
@@ -1218,7 +1212,6 @@ void ConnectToServer(){
     if(trying_to_connect){
         if( main_socket == SOCKET_ID_INVALID ) {
             if( level_name != "") {
-                Log( info, "Trying to connect" );
 				main_socket = CreateSocketTCP(current_server.address, current_server.port);
                 if( main_socket != SOCKET_ID_INVALID ) {
                     Log( info, "Connected " + main_socket );
@@ -1239,9 +1232,10 @@ void ConnectToServer(){
 }
 
 void DisconnectFromServer(){
-	Print("Destroying socket\n");
 	DestroySocketTCP(main_socket);
 	main_socket = SOCKET_ID_INVALID;
+	DestroySocketTCP(retriever_socket);
+	retriever_socket = SOCKET_ID_INVALID;
 	connected_to_server = false;
 	currentUIState = UsernameUI;
 }
@@ -1263,7 +1257,7 @@ void SendSignOn(){
 	message.insertLast(SignOn);
 	MovementObject@ player = ReadCharacterID(player_id);
 	vec3 position = player.position;
-		
+
 	addToByteArray(username, @message);
 	addToByteArray(character, @message);
 	addToByteArray(level_name, @message);
@@ -1272,21 +1266,11 @@ void SendSignOn(){
 	addToByteArray(position.x, @message);
 	addToByteArray(position.y, @message);
 	addToByteArray(position.z, @message);
-	
-	
-	/*Print("Sending: \n");
-	for(uint i = 0; i < message.size(); i++){
-		Print("" + message[i]);
-	}
-	Print("\n");
-	Print("Send done.\n");*/
-	//message.insertLast('\n'[0]);
+
 	SendData(message);
-	//Print(message.writeString(false) + "\n");
 }
 
 void SendChatMessage(string chat_message){
-	Print("Sendign chat message\n");
 	array<uint8> message;
 	message.insertLast(Message);
 	addToByteArray(username, @message);
@@ -1299,14 +1283,11 @@ array<uint8> toByteArray(string message){
 	for(uint i = 0; i < message.length(); i++){
 		data.insertLast(message.substr(i, 1)[0]);
 	}
-	/*data.insertLast('\n'[0]);*/
 	return data;
 }
 
 void addToByteArray(string message, array<uint8> @data){
-	/*Print("Adding a string to message " + message + "\n");*/
 	uint8 message_length = message.length();
-	/*Print("Length " + message_length + "\n");*/
 	data.insertLast(message_length);
 	for(uint i = 0; i < message_length; i++){
 		data.insertLast(message.substr(i, 1)[0]);
@@ -1314,7 +1295,6 @@ void addToByteArray(string message, array<uint8> @data){
 }
 
 void addToByteArray(float value, array<uint8> @data){
-	/*Print("sending " + value + "\n");*/
 	array<uint8> bytes = toByteArray(value);
 	for(uint i = 0; i < 4; i++){
 		data.insertLast(bytes[i]);
@@ -1340,7 +1320,6 @@ float GetFloat(array<uint8>@ data, int &start_index){
 string GetString(array<uint8>@ data, int &start_index){
 	array<string> seperated;
 	int string_size = data[start_index];
-	/*Print("String size " + string_size + "\n");*/
 	start_index++;
     for( int i = 0; i < string_size; i++, start_index++ ) {
 		//Skip if the char is not an actual number/letter/etc
@@ -1351,14 +1330,11 @@ string GetString(array<uint8>@ data, int &start_index){
         s[0] = data[start_index];
         seperated.insertLast(s);
     }
-	/*Print("result " + join(seperated, "") + "\n");*/
     return join(seperated, "");
 }
 
 bool GetBool(array<uint8>@ data, int &start_index){
-	
 	uint8 b = data[start_index];
-	/*Print("bool byte value " + int(b) + "\n");*/
 	start_index++;
 	if(b == 1){
 		return true;
@@ -1409,7 +1385,6 @@ void SendPlayerUpdate(){
 	addToByteArray(player.position.y, @message);
 	addToByteArray(player.position.z, @message);
 	vec3 player_dir = GetPlayerTargetVelocity();
-	/*Print("player_dir " + player_dir.x + " " + player_dir.z + "\n");*/
 	addToByteArray(player_dir.x, @message);
 	addToByteArray(player_dir.z, @message);
 	
@@ -1444,9 +1419,7 @@ void SendPlayerUpdate(){
 	MPActiveBlock = false;
 
 	SendData(message);
-	//Print(message.writeString(false) + "\n");
-	//array<string> messages = {"This is the first message", "and another one", "bloop", "soooo", "hmm yeah"};
-	//SendData(messages[rand()%messages.size()]);
+	
 }
 
 vec3 GetPlayerTargetVelocity() {
@@ -1510,10 +1483,6 @@ void UpdatePlayerVariables(){
     if(GetInputPressed(controller_id, "grab")) {
       MPActiveBlock = true;
     }
-    //dir_x = ReadCharacter(player_id).GetFloatVar("GetTargetVelocity().x");
-    //dir_z = ReadCharacter(player_id).GetFloatVar("GetTargetVelocity().y");
-    //Log(info, dir_x + " dir_x");
-    //Log(info, dir_z + " dir_z");
 }
 
 void UpdateInput(){
@@ -1521,14 +1490,10 @@ void UpdateInput(){
 }
 
 void SendData(array<uint8> message){
-    if( IsValidSocketTCP(main_socket) )
-    {
-        /*Log(info, "Sending data" );
-        Log(info, "Data size " + message.size() );*/
+    if( IsValidSocketTCP(main_socket) ){
         SocketTCPSend(main_socket,message);
     }
-    else
-    {
+	else{
 		Log(info, "Socket no longer valid");
         main_socket = SOCKET_ID_INVALID;
 		connected_to_server = false;
@@ -1596,7 +1561,6 @@ class Chat{
 		}else{
 			background_color = other_message_color;
 		}
-		Print("add from " + source_ + "\n" );
 		chat_messages.insertLast(ChatMessage(message_, source_, notif_, background_color));
 		DrawChat();
 	}
@@ -1665,7 +1629,6 @@ class Chat{
 		chat_divider.append(whole_divider);
 	}
 	void AddChatInput(){
-		Print("add chat input\n");
 		MovementObject@ player = ReadCharacterID(player_id);
 		player.velocity = vec3(0);
 		player.Execute("SetState(_ground_state);");
@@ -1719,7 +1682,6 @@ class Chat{
 		chat_query_divider.append(cursor);
 	}
 	void RemoveChatInput(){
-		Print("remove chat input\n");
 		if(chat_input_shown){
 			MovementObject@ player = ReadCharacterID(player_id);
 			player.Execute("SetState(_movement_state);");

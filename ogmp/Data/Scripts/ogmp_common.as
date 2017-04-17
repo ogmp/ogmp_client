@@ -301,7 +301,9 @@ class ServerRetriever{
 		}
 	}
 	void CheckOnlineServers(){
+		Print("inside CheckOnlineServers\n");
 		if(!checking_servers && !checked_online_servers){
+			Print("inside CheckOnlineServers put to true\n");
 			checking_servers = true;
 		}
 	}
