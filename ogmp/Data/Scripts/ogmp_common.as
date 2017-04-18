@@ -4,8 +4,8 @@ FontSetup client_connect_font("arial", 50 , vec4(1,1,1,0.75), true);
 FontSetup client_connect_font_small("arial", 30 , vec4(1,1,1,0.75), true);
 IMMouseOverPulseColor mouseover_fontcolor(vec4(1), vec4(1), 5.0f);
 IMPulseAlpha pulse(1.0f, 0.0f, 2.0f);
-string connected_icon = "UI/ClientConnect/images/connected.png";
-string disconnected_icon = "UI/ClientConnect/images/disconnected.png";
+string connected_icon = "Textures/connected.png";
+string disconnected_icon = "Textures/disconnected.png";
 string white_background = "Textures/ui/menus/main/white_square.png";
 string brushstroke_background = "Textures/ui/menus/main/brushStroke.png";
 
