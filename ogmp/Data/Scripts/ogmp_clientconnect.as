@@ -106,10 +106,6 @@ bool HandleConnectOnInit(){
 }
 
 void IncomingTCPData(uint socket, array<uint8>@ data) {
-	Print("Outputting:\n");
-	PrintByteArrayString(data);
-	Print("Data size " + data.length() + "\n");
-	PrintByteArray(data);
     for( uint i = 0; i < data.length(); i++ ) {
 		data_collection.insertLast(data[i]);
     }
@@ -136,6 +132,7 @@ void ReadServerList(){
 void ProcessIncomingMessage(array<uint8>@ data){
 	uint8 message_type = data[0];
 	int data_index = 1;
+	Log(error, "Incomming message: " + message_type);
 	if(message_type == SignOn){
 		float refresh_rate = GetFloat(data, data_index);
 		username = GetString(data, data_index);
@@ -1109,15 +1106,6 @@ void Update(int paused) {
 		chat.AddMessage("Content" + rand(), "Person", false);*/
 		/*chat.AddMessage("Content" + rand(), username, false);*/
 		/*ReadServerList();*/
-		
-		array<uint8> message = {SignOn};
-		SocketTCPSend(retriever_socket, message);
-		
-		/*array<uint8> new_data = {LevelList};
-		SendData(new_data);*/
-		//MovementObject@ player = ReadCharacterID(player_id);
-		
-		//DebugDrawText(player.position, "Test", 5.0f, true, _persistent);
 	}
 	if(connected_to_server){
 		UpdateInput();
@@ -1186,20 +1174,25 @@ void HandleLevelChosen(string chosen_level_name, string chosen_level_path){
 }
 
 void SeparateMessages(){
-	if(data_collection.size() < 1){
+	if(data_collection.size() < 4){
 		return;
 	}
-	uint message_size = data_collection[0];
-	Print("Message size " + message_size + "\n");
+	array<uint8> size_array = {data_collection[0], data_collection[1], data_collection[2], data_collection[3]};
+	uint message_size = GetIntFromByteArray(size_array);
 	if( data_collection.size() <= message_size ){
 		return;
 	}
 	array<uint8> message;
-	for(uint i = 1; i <= message_size; i++){
+	for(uint i = 4; i < message_size + 4; i++){
 		message.insertLast(data_collection[i]);
 	}
-	data_collection.removeRange(0, message_size + 1);
+	data_collection.removeRange(0, message_size + 4);
 	ProcessIncomingMessage(message);
+}
+
+int GetIntFromByteArray(array<uint8> b){
+	int i = (b[0] << 24) | (b[1] << 16) | (b[2] << 8) | (b[3]);
+	return i;
 }
 
 void SetWindowDimensions(int w, int h)
