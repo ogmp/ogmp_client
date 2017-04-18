@@ -106,6 +106,10 @@ bool HandleConnectOnInit(){
 }
 
 void IncomingTCPData(uint socket, array<uint8>@ data) {
+	Print("Outputting:\n");
+	PrintByteArrayString(data);
+	Print("Data size " + data.length() + "\n");
+	PrintByteArray(data);
     for( uint i = 0; i < data.length(); i++ ) {
 		data_collection.insertLast(data[i]);
     }
@@ -172,6 +176,34 @@ void ProcessIncomingMessage(array<uint8>@ data){
 	else if (message_type == UpdateGame){
 	}
 	else if (message_type == UpdateSelf){
+		MovementObject@ player = ReadCharacterID(player_id);
+		
+		float blooddamage = GetFloat(data, data_index);
+		float bloodhealth = GetFloat(data, data_index);
+		float blockhealth = GetFloat(data, data_index);
+		float temphealth = GetFloat(data, data_index);
+		float permanenthealth = GetFloat(data, data_index);
+		int lives = GetInt(data, data_index);
+		float bloodamount = GetFloat(data, data_index);
+		float recoverytime = GetFloat(data, data_index);
+		float rollrecoverytime = GetFloat(data, data_index);
+		bool removeblood = GetBool(data, data_index);
+		bool cutthroat = GetBool(data, data_index);
+		
+		player.Execute("blood_damage = " + blooddamage + ";");
+		player.Execute("blood_health = " + bloodhealth + ";");
+		player.Execute("block_health = " + blockhealth + ";");
+		player.Execute("temp_health = " + temphealth + ";");
+		player.Execute("permanent_health = " + permanenthealth + ";");
+		player.Execute("blood_amount = " + bloodamount + ";");
+		player.Execute("recovery_time = " + recoverytime + ";");
+		player.Execute("roll_recovery_time = " + rollrecoverytime + ";");
+		player.Execute("cut_throat = " + cutthroat + ";");
+		
+		if(removeblood){
+			/*player.Execute("this_mo.rigged_object().CleanBlood();");*/
+			player.Execute("Recover();");
+		}
 	}
 	else if (message_type == UpdateCharacter){
 		string remote_username = GetString(data, data_index);
@@ -298,7 +330,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 	}
 	else{
 		Log(error, "Unknown incomming message: " + message_type);
-		PrintByteArray(data);
+		PrintByteArrayString(data);
 	}
 }
 
@@ -346,7 +378,7 @@ void RemoveRemotePlayer(string username){
 	player.Execute("situation.clear();");
 }
 
-void PrintByteArray(array<uint8> data){
+void PrintByteArrayString(array<uint8> data){
 	array<string> complete;
     for( uint i = 0; i < data.length(); i++ ) {
         string s('0');
@@ -357,13 +389,17 @@ void PrintByteArray(array<uint8> data){
 	Print("\n");
 }
 
+void PrintByteArray(array<uint8> data){
+    for( uint i = 0; i < data.length(); i++ ) {
+		Print(data[i] + " ");
+    }
+	Print("\n");
+}
+
 void AddError(string message){
 	error_divider.clear();
 	IMText error_message(message, error_font);
 	error_divider.append(error_message);
-}
-
-void ReceiveMessage(string msg) {
 }
 
 void DrawGUI() {
@@ -1012,7 +1048,6 @@ void Update(int paused) {
 			update_timer = 0;
 	    }
 	    update_timer += time_step;
-        ReceiveServerUpdate();
 		KeyChecks();
 		UpdatePlayerUsernameBillboard();
     }else{
@@ -1155,6 +1190,7 @@ void SeparateMessages(){
 		return;
 	}
 	uint message_size = data_collection[0];
+	Print("Message size " + message_size + "\n");
 	if( data_collection.size() <= message_size ){
 		return;
 	}
@@ -1443,10 +1479,6 @@ vec3 GetPlayerTargetVelocity() {
         target_velocity = get_weapon_dir;
     }*/
     return target_velocity;
-}
-
-void ReceiveServerUpdate(){
-	
 }
 
 void UpdatePlayerVariables(){

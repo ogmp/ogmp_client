@@ -199,8 +199,7 @@ class ServerRetriever{
 				}
 			}
 			if( IsValidSocketTCP(retriever_socket) ){
-				Log(info, "valid");
-				Log(info, "Send LevelList!");
+				Log(info, "Send LevelList");
 				array<uint8> levellist_message = {LevelList};
 				SocketTCPSend(retriever_socket, levellist_message);
 				getting_level_list = false;
@@ -227,10 +226,9 @@ class ServerRetriever{
 				Log( warning, "Socket is closed, can't get player list!");
 			}
 			if( IsValidSocketTCP(main_socket) ){
-				Log(info, "Send PlayerList!");
+				Log(info, "Send PlayerList");
 				array<uint8> playerlist_message = {PlayerList};
 				SocketTCPSend(main_socket, playerlist_message);
-				Print("Send PlayerList\n");
 				getting_player_list = false;
 			}
 		}
@@ -263,7 +261,7 @@ class ServerRetriever{
 					GetNextServer();
 				}
 			}else{
-				Log(info, "valid");
+				Log(info, "Send ServerInfo");
 				array<uint8> info_message = {ServerInfo};
 				SocketTCPSend(retriever_socket,info_message);
 				connect_tries = 0;
@@ -301,9 +299,7 @@ class ServerRetriever{
 		}
 	}
 	void CheckOnlineServers(){
-		Print("inside CheckOnlineServers\n");
 		if(!checking_servers && !checked_online_servers){
-			Print("inside CheckOnlineServers put to true\n");
 			checking_servers = true;
 		}
 	}
@@ -313,10 +309,8 @@ class ServerRetriever{
 		}
 	}
 	void GetPlayerList(){
-		Print("GetPlayerList " + getting_player_list + " " + got_player_list + "\n");
 		if(!getting_player_list && !got_player_list){
 			getting_player_list = true;
-			Print("getting_player_list " + getting_player_list + "\n");
 		}
 	}
 }
@@ -353,7 +347,7 @@ class Inputfield {
 		if(active){return;}
 		
 		//Freeze the player so it doesn't walk around.
-		MovementObject@ player = ReadCharacter(player_id);
+		MovementObject@ player = ReadCharacterID(player_id);
 		player.velocity = vec3(0);
 		player.Execute("SetState(_ground_state);");
 		
@@ -383,7 +377,6 @@ class Inputfield {
 		if(query == ""){
 			query = backup_query;
 		}
-		Print("query " + query + "\n");
 		IMText new_input_field(query, client_connect_font);
 		parent.append(new_input_field);
 		@input_field = @new_input_field;
@@ -478,7 +471,7 @@ class Inputfield {
 					//Print("new input = "+ keycode + "\n");
 					bool get_upper_case = false;
 					
-					if(GetInputDown(ReadCharacter(player_id).controller_id, "shift")){
+					if(GetInputDown(ReadCharacterID(player_id).controller_id, "shift")){
 						get_upper_case =true;
 					}
 					
@@ -494,7 +487,7 @@ class Inputfield {
 						pressed_return = true;
 						username = query;
 						//Put the player state back so it can walk again.
-						MovementObject@ player = ReadCharacter(player_id);
+						MovementObject@ player = ReadCharacterID(player_id);
 						player.velocity = vec3(0);
 						player.Execute("SetState(_movement_state);");
 						Deactivate();
