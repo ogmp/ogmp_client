@@ -132,7 +132,7 @@ void ReadServerList(){
 void ProcessIncomingMessage(array<uint8>@ data){
 	uint8 message_type = data[0];
 	int data_index = 1;
-	Log(error, "Incomming message: " + message_type);
+	/*Log(error, "Incomming message: " + message_type);*/
 	if(message_type == SignOn){
 		float refresh_rate = GetFloat(data, data_index);
 		username = GetString(data, data_index);
@@ -1048,6 +1048,7 @@ void Update(int paused) {
 		return;
 	}
     if(connected_to_server){
+		UpdateTimeCriticalPlayerVariables();
 		if(update_timer > interval){
 			UpdatePlayerVariables();
 	        SendPlayerUpdate();
@@ -1483,6 +1484,20 @@ vec3 GetPlayerTargetVelocity() {
     return target_velocity;
 }
 
+void UpdateTimeCriticalPlayerVariables(){
+	MovementObject@ player = ReadCharacterID(player_id);
+	int controller_id = player.controller_id;
+	if(GetInputPressed(controller_id, "crouch")) {
+		MPWantsToRoll = true;
+	}
+	if(GetInputPressed(controller_id, "jump")) {
+	  MPWantsToJumpOffWall = true;
+	}
+	if(GetInputPressed(controller_id, "grab")) {
+	  MPActiveBlock = true;
+	}
+}
+
 void UpdatePlayerVariables(){
 	MovementObject@ player = ReadCharacterID(player_id);
 	int controller_id = player.controller_id;
@@ -1507,16 +1522,6 @@ void UpdatePlayerVariables(){
 	blood_delay = player.GetIntVar("blood_delay");
 	state = player.GetIntVar("state");
 	cut_throat = player.GetBoolVar("cut_throat");
-
-    if(GetInputPressed(controller_id, "crouch")) {
-      MPWantsToRoll = true;
-    }
-    if(GetInputPressed(controller_id, "jump")) {
-      MPWantsToJumpOffWall = true;
-    }
-    if(GetInputPressed(controller_id, "grab")) {
-      MPActiveBlock = true;
-    }
 }
 
 void UpdateInput(){
