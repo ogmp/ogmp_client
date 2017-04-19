@@ -440,7 +440,9 @@ void AddUsernameUI(){
 	vec2 menu_size(1000, 50);
 	vec4 background_color(0,0,0,0.5);
 	vec2 button_size(1000, 60);
+	vec2 option_size(900, 60);
 	float button_size_offset = 10.0f;
+	float description_width = 200.0f;
 
 	IMContainer menu_container(menu_size.x, menu_size.y);
 	menu_container.setAlignment(CACenter, CATop);
@@ -469,37 +471,42 @@ void AddUsernameUI(){
 	
 	menu_divider.appendSpacer(10);
 	
-	//Username input field.
-	IMContainer username_container(button_size.x / 2.0f, button_size.y);
-	IMDivider username_divider("username_divider", DOHorizontal);
-	IMContainer username_parent_container(button_size.x / 2.0f, button_size.y);
-	IMDivider username_parent("username_parent", DOHorizontal);
-	username_parent_container.setElement(username_parent);
-	username_container.setElement(username_divider);
-	username_parent_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("activate_search"), "");
-	
-	IMText description_label("Username: ", client_connect_font);
-	description_label.setZOrdering(2);
-	username_divider.append(description_label);
-	
-	username_divider.appendSpacer(25);
-	
-	IMText username_label(username, client_connect_font);
-	username_label.setZOrdering(2);
-	username_parent.append(username_label);
-	username_divider.append(username_parent_container);
-	
-	IMImage username_background(white_background);
-	username_background.setZOrdering(0);
-	username_background.setSize(button_size - button_size_offset);
-	username_background.setColor(vec4(0,0,0,0.75));
-	username_parent_container.addFloatingElement(username_background, "username_background", vec2(button_size_offset / 2.0f));
-	
-	username_field.SetInputField(@username_label, @username_parent);
-	menu_divider.append(username_container);
+	{
+		//Username input field.
+		IMContainer username_container(option_size.x, option_size.y);
+		IMDivider username_divider("username_divider", DOHorizontal);
+		IMContainer username_parent_container(button_size.x / 2.0f, button_size.y);
+		IMDivider username_parent("username_parent", DOHorizontal);
+		username_parent_container.setElement(username_parent);
+		username_container.setElement(username_divider);
+		username_parent_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("activate_search"), "");
+		
+		IMContainer description_container(description_width, option_size.y);
+		IMText description_label("Username: ", client_connect_font);
+		description_container.setElement(description_label);
+		description_label.setZOrdering(3);
+		username_divider.append(description_container);
+		
+		username_divider.appendSpacer(25);
+		
+		IMText username_label(username, client_connect_font);
+		username_label.setZOrdering(3);
+		username_parent.append(username_label);
+		username_divider.append(username_parent_container);
+		
+		IMImage username_background(white_background);
+		username_background.setZOrdering(0);
+		username_background.setSize(500 - button_size_offset);
+		username_background.setColor(vec4(0,0,0,0.75));
+		username_parent_container.addFloatingElement(username_background, "username_background", vec2(button_size_offset / 2.0f));
+		
+		username_field.SetInputField(@username_label, @username_parent);
+		menu_divider.append(username_container);
+	}
+		
 	{
 		//Character dropdown.
-		IMContainer container(button_size.x / 2.0f, button_size.y);
+		IMContainer container(option_size.x, option_size.y);
 		IMDivider divider("character_divider", DOHorizontal);
 		container.setElement(divider);
 		
@@ -507,14 +514,16 @@ void AddUsernameUI(){
 		IMDivider parent_divider("username_parent", DOHorizontal);
 		parent_container.setElement(parent_divider);
 	
+		IMContainer description_container(description_width, option_size.y);
 		IMText label("Character: ", client_connect_font);
-		label.setZOrdering(2);
-		divider.append(label);
+		description_container.setElement(label);
+		label.setZOrdering(3);
+		divider.append(description_container);
 		
 		divider.appendSpacer(25);
 		
 		IMText character_label("", client_connect_font);
-		character_label.setZOrdering(2);
+		character_label.setZOrdering(3);
 		parent_divider.append(character_label);
 		divider.append(parent_container);
 		
