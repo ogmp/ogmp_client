@@ -39,8 +39,8 @@ ServerRetriever server_retriever;
 
 array<ServerConnectionInfo@> server_list = {	ServerConnectionInfo("127.0.0.1", 2000),
 												ServerConnectionInfo("127.0.0.1", 80),
-												ServerConnectionInfo("127.0.0.1", 1337)};
-												/*ServerConnectionInfo("52.56.230.41", 80)};*/
+												ServerConnectionInfo("127.0.0.1", 1337),
+												ServerConnectionInfo("52.56.230.41", 2000)};
 
 class ServerConnectionInfo{
 	string server_name;
