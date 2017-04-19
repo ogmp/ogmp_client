@@ -43,7 +43,6 @@ float block_health = 1.0f;
 float temp_health = 1.0f;
 float permanent_health = 1.0f;
 int knocked_out = 0;
-int lives = 1;
 float blood_amount = 10.0f;
 float recovery_time = 1.0f;
 float roll_recovery_time = 1.0f;
@@ -180,7 +179,6 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		float blockhealth = GetFloat(data, data_index);
 		float temphealth = GetFloat(data, data_index);
 		float permanenthealth = GetFloat(data, data_index);
-		int lives = GetInt(data, data_index);
 		float bloodamount = GetFloat(data, data_index);
 		float recoverytime = GetFloat(data, data_index);
 		float rollrecoverytime = GetFloat(data, data_index);
@@ -227,7 +225,6 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		float remote_permanenthealth = GetFloat(data, data_index);
 		
 		int remote_knockedout = GetInt(data, data_index);
-		int remote_lives = GetInt(data, data_index);
 		
 		float remote_bloodamount = GetFloat(data, data_index);
 		float remote_recoverytime = GetFloat(data, data_index);
@@ -265,8 +262,10 @@ void ProcessIncomingMessage(array<uint8>@ data){
 			
 			remote_player.Execute("knocked_out = " + remote_knockedout + ";");
 			remote_player.Execute("blood_delay = " + remote_blooddelay + ";");
-			remote_player.Execute("state = " + remote_state + ";");
-			
+			if(remote_player.GetIntVar("knocked_out") != _awake && remote_permanenthealth == 1.0f){
+				remote_player.Execute("Recover();");
+			}
+			/*remote_player.Execute("state = " + remote_state + ";");*/
 		}else{
 			Log(error, "Can't find the user!");
 		}
@@ -1443,7 +1442,6 @@ void SendPlayerUpdate(){
 	addToByteArray(temp_health, @message);
 	addToByteArray(permanent_health, @message);
 	addToByteArray(knocked_out, @message);
-	addToByteArray(lives, @message);
 	addToByteArray(blood_amount, @message);
 	
 	addToByteArray(recovery_time, @message);
@@ -1517,7 +1515,6 @@ void UpdatePlayerVariables(){
 	recovery_time = player.GetFloatVar("recovery_time");
 	roll_recovery_time = player.GetFloatVar("roll_recovery_time");
 	knocked_out = player.GetIntVar("knocked_out");
-	//lives = player.GetIntVar("lives");
 	ragdoll_type = player.GetIntVar("ragdoll_type");
 	blood_delay = player.GetIntVar("blood_delay");
 	state = player.GetIntVar("state");
