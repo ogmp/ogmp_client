@@ -148,6 +148,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		RemoveUI();
 		currentUIState = PlayerListUI;
 		DisableDebugKeys();
+		RemoveAllExceptPlayer();
 	}
 	else if(message_type == Message){
 		string message_source = GetString(data, data_index);
@@ -182,6 +183,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		float bloodamount = GetFloat(data, data_index);
 		float recoverytime = GetFloat(data, data_index);
 		float rollrecoverytime = GetFloat(data, data_index);
+		int ragdoll_type = GetInt(data, data_index);
 		bool removeblood = GetBool(data, data_index);
 		bool cutthroat = GetBool(data, data_index);
 		
@@ -193,10 +195,10 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		player.Execute("blood_amount = " + bloodamount + ";");
 		player.Execute("recovery_time = " + recoverytime + ";");
 		player.Execute("roll_recovery_time = " + rollrecoverytime + ";");
+		player.Execute("ragdoll_type = " + ragdoll_type + ";");
 		player.Execute("cut_throat = " + cutthroat + ";");
 		
 		if(removeblood){
-			/*player.Execute("this_mo.rigged_object().CleanBlood();");*/
 			player.Execute("Recover();");
 		}
 	}
@@ -229,12 +231,13 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		float remote_bloodamount = GetFloat(data, data_index);
 		float remote_recoverytime = GetFloat(data, data_index);
 		float remote_rollrecoverytime = GetFloat(data, data_index);
+		int remote_ragdolltype = GetInt(data, data_index);
 		
 		bool remote_removeblood = GetBool(data, data_index);
 		int remote_blooddelay = GetInt(data, data_index);
 		bool remote_cutthroat = GetBool(data, data_index);
 		int remote_state = GetInt(data, data_index);
-		
+
 		MovementObject@ remote_player = GetRemotePlayer(remote_username);
 		if(remote_player !is null){
 			remote_player.position = vec3(remote_posx, remote_posy, remote_posz);
@@ -260,12 +263,12 @@ void ProcessIncomingMessage(array<uint8>@ data){
 			remote_player.Execute("recovery_time = " + remote_recoverytime + ";");
 			remote_player.Execute("roll_recovery_time = " + remote_rollrecoverytime + ";");
 			
+			remote_player.Execute("ragdoll_type = " + remote_ragdolltype + ";");
 			remote_player.Execute("knocked_out = " + remote_knockedout + ";");
 			remote_player.Execute("blood_delay = " + remote_blooddelay + ";");
 			if(remote_player.GetIntVar("knocked_out") != _awake && remote_permanenthealth == 1.0f){
 				remote_player.Execute("Recover();");
 			}
-			/*remote_player.Execute("state = " + remote_state + ";");*/
 		}else{
 			Log(error, "Can't find the user!");
 		}
@@ -1188,7 +1191,7 @@ void SeparateMessages(){
 	}
 	array<uint8> size_array = {data_collection[0], data_collection[1], data_collection[2], data_collection[3]};
 	uint message_size = GetIntFromByteArray(size_array);
-	if( data_collection.size() <= message_size ){
+	if( data_collection.size() < message_size + 4 ){
 		return;
 	}
 	array<uint8> message;
@@ -1276,6 +1279,7 @@ void DisconnectFromServer(){
 	retriever_socket = SOCKET_ID_INVALID;
 	connected_to_server = false;
 	currentUIState = UsernameUI;
+	RemoveAllExceptPlayer();
 }
 
 void SendSavePosition(){
@@ -1460,7 +1464,10 @@ void SendPlayerUpdate(){
 }
 
 vec3 GetPlayerTargetVelocity() {
-    vec3 target_velocity(0.0f);    
+	if(chat.chat_input_shown){
+		return vec3(0);
+	}
+    vec3 target_velocity(0.0f);
     vec3 right;
     {
         right = camera.GetFlatFacing();
@@ -1483,6 +1490,9 @@ vec3 GetPlayerTargetVelocity() {
 }
 
 void UpdateTimeCriticalPlayerVariables(){
+	if(chat.chat_input_shown){
+		return;
+	}
 	MovementObject@ player = ReadCharacterID(player_id);
 	int controller_id = player.controller_id;
 	if(GetInputPressed(controller_id, "crouch")) {
@@ -1497,6 +1507,9 @@ void UpdateTimeCriticalPlayerVariables(){
 }
 
 void UpdatePlayerVariables(){
+	if(chat.chat_input_shown){
+		return;
+	}
 	MovementObject@ player = ReadCharacterID(player_id);
 	int controller_id = player.controller_id;
     MPWantsToCrouch = GetInputDown(controller_id, "crouch");
@@ -1535,6 +1548,22 @@ void SendData(array<uint8> message){
 		connected_to_server = false;
 		trying_to_connect = false;
     }
+}
+
+void RemoveAllExceptPlayer() {
+    int num = GetNumCharacters();
+	array<int> remove_ids;
+    for(int i=0; i<num; ++i){
+        MovementObject@ char = ReadCharacter(i);
+        if(char.GetID() != player_id){
+            remove_ids.insertLast(char.GetID());
+        }
+    }
+	for(uint i=0; i<remove_ids.size(); ++i){
+		DeleteObjectID(remove_ids[i]);
+	}
+	MovementObject@ player = ReadCharacterID(player_id);
+	player.Execute("situation.clear();");	
 }
 
 int GetPlayerCharacterID() {
