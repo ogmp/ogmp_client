@@ -3,66 +3,59 @@
 <Name></Name>
 <Description></Description>
 <Shader>post</Shader>
-<Terrain>
-    <Heightmap>Data/Textures/Terrain/red_desert/red_desert_hm.png</Heightmap>
-    <ShaderExtra></ShaderExtra>
-    <DetailMap></DetailMap>
-    <ColorMap>Data/Textures/Terrain/red_desert/red_desert_c.tga</ColorMap>
-    <WeightMap>Data/Textures/Terrain/red_desert/red_desert_w.png</WeightMap>
-    <DetailMaps>
-        <DetailMap colorpath="Data/Textures/Terrain/DetailTextures/pebbles.tga" normalpath="Data/Textures/Terrain/DetailTextures/pebbles_normal.tga" materialpath="Data/Materials/rocks.xml" />
-        <DetailMap colorpath="Data/Textures/Terrain/DetailTextures/pebbly_sand.tga" normalpath="Data/Textures/Terrain/DetailTextures/pebbly_sand_normal.tga" materialpath="Data/Materials/gravel.xml" />
-        <DetailMap colorpath="Data/Textures/Terrain/DetailTextures/sandwaves.tga" normalpath="Data/Textures/Terrain/DetailTextures/sandwaves_normal.tga" materialpath="Data/Materials/sand.xml" />
-        <DetailMap colorpath="Data/Textures/Terrain/DetailTextures/rubble.tga" normalpath="Data/Textures/Terrain/DetailTextures/rubble_normal.tga" materialpath="Data/Materials/rock.xml" />
-    </DetailMaps>
-    <DetailObjects />
-</Terrain>
 <OutOfDate NavMesh="true" />
 <AmbientSounds />
 <Script></Script>
 <LevelScriptParameters>
-    <parameter name="Achievements" type="string" val="flawless, no_alert, no_injuries" />
-    <parameter name="Extra AO" type="string" val="0" />
+    <parameter name="Achievements" type="string" val="flawless, no_injuries, no_kills" />
     <parameter name="HDR Black point" type="float" val="0.005" />
     <parameter name="HDR Bloom multiplier" type="float" val="1" />
     <parameter name="HDR White point" type="float" val="0.7" />
-    <parameter name="Level Boundaries" type="string" val="1" />
+    <parameter name="Level Boundaries" type="int" val="1" />
     <parameter name="Objectives" type="string" val="destroy_all" />
-    <parameter name="Sky Rotation" type="string" val="0" />
 </LevelScriptParameters>
 <Sky>
     <DomeTexture>Data/Textures/skies/bright_dusk.tga</DomeTexture>
-    <SunAngularRad>0.0737111</SunAngularRad>
+    <SunAngularRad>0.153056</SunAngularRad>
     <SunColorAngle>353.589</SunColorAngle>
-    <RayToSun r0="0.843168" r1="0.508385" r2="0.174962" />
+    <RayToSun r0="0.849746" r1="0.499721" r2="0.167961" />
 </Sky>
 <ActorObjects>
-    <ActorObject t0="-53.5112" t1="31.2092" t2="57.545" s0="1" s1="1" s2="1" q0="-5.96046e-08" q1="0" q2="0" r0="1" r1="0" r2="-0" r3="0" r4="-0" r5="1" r6="-1.19209e-07" r7="0" r8="0" r9="1.19209e-07" r10="1" r11="0" r12="0" r13="0" r14="0" r15="1" id="1" type_file="Data/Objects/IGF_Characters/IGF_TurnerActor.xml" is_player="1">
+    <CameraObject t0="72.612" t1="18.8395" t2="25.6165" s0="1" s1="1" s2="1" q0="0.607975" q1="-0.290942" q2="0.255148" q3="0.693267" id="1">
+        <parameters />
+    </CameraObject>
+    <EnvObject t0="60.2628" t1="15.5086" t2="38.1347" s0="1.47842" s1="0.897672" s2="2.04035" q0="0" q1="0" q2="0" q3="1" id="4" color_r="1" color_g="1" color_b="1" overbright="0" type_file="Data/Objects/Crete/crete_block_marble_standard.xml">
+        <parameters />
+    </EnvObject>
+    <EnvObject t0="60.6462" t1="10.3889" t2="38.2379" s0="7.36941" s1="0.999975" s2="10.6846" q0="0" q1="0" q2="0" q3="1" id="5" color_r="1" color_g="1" color_b="1" overbright="0" type_file="Data/Objects/Crete/crete_block_marble_standard.xml">
+        <parameters />
+    </EnvObject>
+    <ActorObject t0="59.3186" t1="14.864" t2="29.6246" s0="1" s1="1" s2="1" q0="0" q1="0.957869" q2="0" q3="0.287206" id="8" type_file="Data/Objects/IGF_Characters/IGF_TurnerActor.xml" is_player="1">
         <parameters>
             <parameter name="Aggression" type="string" val="0.5" />
-            <parameter name="Attack Damage" type="string" val="1" />
-            <parameter name="Attack Knockback" type="string" val="1" />
-            <parameter name="Attack Speed" type="string" val="1" />
+            <parameter name="Attack Damage" type="string" val="1.0" />
+            <parameter name="Attack Knockback" type="string" val="1.0" />
+            <parameter name="Attack Speed" type="string" val="1.0" />
             <parameter name="Block Follow-up" type="string" val="0.5" />
             <parameter name="Block Skill" type="string" val="0.5" />
-            <parameter name="Character Scale" type="string" val="1" />
-            <parameter name="Damage Resistance" type="string" val="1" />
-            <parameter name="Ear Size" type="string" val="1" />
-            <parameter name="Fat" type="string" val="0.5" />
-            <parameter name="Focus FOV distance" type="string" val="10" />
-            <parameter name="Focus FOV horizontal" type="string" val="0.63" />
-            <parameter name="Focus FOV vertical" type="string" val="0.63" />
-            <parameter name="Ground Aggression" type="string" val="0.5" />
-            <parameter name="Knockout Shield" type="string" val="0" />
-            <parameter name="Left handed" type="string" val="0" />
-            <parameter name="Lives" type="string" val="1" />
-            <parameter name="Movement Speed" type="string" val="1" />
-            <parameter name="Muscle" type="string" val="0.45" />
-            <parameter name="Peripheral FOV distance" type="string" val="4" />
-            <parameter name="Peripheral FOV horizontal" type="string" val="1.4100000000000001" />
-            <parameter name="Peripheral FOV vertical" type="string" val="1.4100000000000001" />
-            <parameter name="Static" type="string" val="0" />
-            <parameter name="Teams" type="string" val="player1" />
+            <parameter name="Character Scale" type="float" val="1" />
+            <parameter name="Damage Resistance" type="string" val="1.0" />
+            <parameter name="Ear Size" type="float" val="1" />
+            <parameter name="Fat" type="float" val="0.5" />
+            <parameter name="Focus FOV distance" type="float" val="10" />
+            <parameter name="Focus FOV horizontal" type="float" val="0.62834" />
+            <parameter name="Focus FOV vertical" type="float" val="0.62834" />
+            <parameter name="Ground Aggression" type="float" val="0.5" />
+            <parameter name="Knockout Shield" type="int" val="0" />
+            <parameter name="Left handed" type="int" val="0" />
+            <parameter name="Lives" type="int" val="1" />
+            <parameter name="Movement Speed" type="string" val="1.0" />
+            <parameter name="Muscle" type="float" val="0.5" />
+            <parameter name="Peripheral FOV distance" type="float" val="4" />
+            <parameter name="Peripheral FOV horizontal" type="float" val="1.41376" />
+            <parameter name="Peripheral FOV vertical" type="float" val="1.41376" />
+            <parameter name="Static" type="int" val="0" />
+            <parameter name="Teams" type="string" val="turner" />
         </parameters>
         <Connections>
             <Connection id="-1" />
@@ -71,64 +64,8 @@
         <Palette>
             <Color label="Cloth" channel="0" red="1" green="1" blue="1" />
             <Color label="Rope" channel="1" red="1" green="1" blue="1" />
-            <Color label="Fur" channel="2" red="0.67451" green="0.486275" blue="0.243137" />
+            <Color label="Fur" channel="2" red="1" green="1" blue="1" />
         </Palette>
     </ActorObject>
-    <EnvObject t0="-54.436" t1="26.5715" t2="73.165" s0="1.88792" s1="1" s2="1" q0="-0.195919" q1="0.201489" q2="-0.675247" r0="0.00688708" r1="-0.999924" r2="-0.0102254" r3="0" r4="0.842022" r5="0.0113147" r6="-0.539325" r7="0" r8="0.5394" r9="-0.00489569" r10="0.842036" r11="0" r12="0" r13="0" r14="0" r15="1" id="2" color_r="1" color_g="1" color_b="1" type_file="Data/Objects/Crete/CreteBlockStandard.xml">
-        <parameters />
-    </EnvObject>
-    <EnvObject t0="-46.8325" t1="29.0051" t2="68.3087" s0="1.68751" s1="0.999999" s2="1" q0="-0.195919" q1="0.201489" q2="-0.675247" r0="0.00688708" r1="-0.999924" r2="-0.0102254" r3="0" r4="0.842022" r5="0.0113147" r6="-0.539325" r7="0" r8="0.5394" r9="-0.00489569" r10="0.842036" r11="0" r12="0" r13="0" r14="0" r15="1" id="3" color_r="1" color_g="1" color_b="1" type_file="Data/Objects/Crete/CreteBlockStandard.xml">
-        <parameters />
-    </EnvObject>
-    <EnvObject t0="-62.936" t1="25.9667" t2="64.2726" s0="1.88792" s1="1" s2="1" q0="-0.195919" q1="0.201489" q2="-0.675247" r0="0.00688708" r1="-0.999924" r2="-0.0102254" r3="0" r4="0.842022" r5="0.0113147" r6="-0.539325" r7="0" r8="0.5394" r9="-0.00489569" r10="0.842036" r11="0" r12="0" r13="0" r14="0" r15="1" id="4" color_r="1" color_g="1" color_b="1" type_file="Data/Objects/Crete/CreteBlockStandard.xml">
-        <parameters />
-    </EnvObject>
-    <EnvObject t0="-61.5247" t1="25.414" t2="50.0365" s0="2.03241" s1="1" s2="1" q0="-0.195919" q1="0.201489" q2="-0.675247" r0="0.00688708" r1="-0.999924" r2="-0.0102254" r3="0" r4="0.842022" r5="0.0113147" r6="-0.539325" r7="0" r8="0.5394" r9="-0.00489569" r10="0.842036" r11="0" r12="0" r13="0" r14="0" r15="1" id="5" color_r="1" color_g="1" color_b="1" type_file="Data/Objects/Crete/CreteBlockStandard.xml">
-        <parameters />
-    </EnvObject>
-    <EnvObject t0="-75.2144" t1="28.3256" t2="58.183" s0="3.02486" s1="1" s2="0.999998" q0="-0.195919" q1="0.201489" q2="-0.675247" r0="0.00688708" r1="-0.999924" r2="-0.0102254" r3="0" r4="0.842022" r5="0.0113147" r6="-0.539325" r7="0" r8="0.5394" r9="-0.00489569" r10="0.842036" r11="0" r12="0" r13="0" r14="0" r15="1" id="6" color_r="1" color_g="1" color_b="1" type_file="Data/Objects/Crete/CreteBlockStandard.xml">
-        <parameters />
-    </EnvObject>
-    <EnvObject t0="-47.7009" t1="20.6878" t2="54.4031" s0="4.65193" s1="2.75668" s2="2.75668" q0="-0.195919" q1="0.201489" q2="-0.675247" r0="0.00688708" r1="-0.999924" r2="-0.0102254" r3="0" r4="0.842022" r5="0.0113147" r6="-0.539325" r7="0" r8="0.5394" r9="-0.00489569" r10="0.842036" r11="0" r12="0" r13="0" r14="0" r15="1" id="9" color_r="1" color_g="1" color_b="1" type_file="Data/Objects/Crete/CreteBlockStandard.xml">
-        <parameters />
-    </EnvObject>
-    <EnvObject t0="-66.0714" t1="31.666" t2="66.2231" s0="4.56229" s1="0.999996" s2="1" q0="-0.195919" q1="0.201489" q2="-0.675247" r0="0.00688708" r1="-0.999924" r2="-0.0102254" r3="0" r4="0.842022" r5="0.0113147" r6="-0.539325" r7="0" r8="0.5394" r9="-0.00489569" r10="0.842036" r11="0" r12="0" r13="0" r14="0" r15="1" id="10" color_r="1" color_g="1" color_b="1" type_file="Data/Objects/Crete/CreteBlockStandard.xml">
-        <parameters />
-    </EnvObject>
-    <EnvObject t0="-71.5043" t1="24.0118" t2="40.099" s0="2.03241" s1="0.745947" s2="1" q0="-0.195919" q1="0.201489" q2="-0.675247" r0="0.00688708" r1="-0.999924" r2="-0.0102254" r3="0" r4="0.842022" r5="0.0113147" r6="-0.539325" r7="0" r8="0.5394" r9="-0.00489569" r10="0.842036" r11="0" r12="0" r13="0" r14="0" r15="1" id="11" color_r="1" color_g="1" color_b="1" type_file="Data/Objects/Crete/CreteBlockStandard.xml">
-        <parameters />
-    </EnvObject>
-    <EnvObject t0="-82.4263" t1="21.9252" t2="46.4437" s0="3.02486" s1="0.745948" s2="0.999998" q0="-0.195919" q1="0.201489" q2="-0.675247" r0="0.00688708" r1="-0.999924" r2="-0.0102254" r3="0" r4="0.842022" r5="0.0113147" r6="-0.539325" r7="0" r8="0.5394" r9="-0.00489569" r10="0.842036" r11="0" r12="0" r13="0" r14="0" r15="1" id="12" color_r="1" color_g="1" color_b="1" type_file="Data/Objects/Crete/CreteBlockStandard.xml">
-        <parameters />
-    </EnvObject>
-    <EnvObject t0="-57.5714" t1="32.2708" t2="75.1154" s0="4.56229" s1="0.999996" s2="1" q0="-0.195919" q1="0.201489" q2="-0.675247" r0="0.00688708" r1="-0.999924" r2="-0.0102254" r3="0" r4="0.842022" r5="0.0113147" r6="-0.539325" r7="0" r8="0.5394" r9="-0.00489569" r10="0.842036" r11="0" r12="0" r13="0" r14="0" r15="1" id="21" color_r="1" color_g="1" color_b="1" type_file="Data/Objects/Crete/CreteBlockStandard.xml">
-        <parameters />
-    </EnvObject>
-    <EnvObject t0="-82.5544" t1="16.7491" t2="30.4398" s0="3.61286" s1="1" s2="0.999997" q0="-0.195919" q1="0.201489" q2="-0.675247" r0="0.00688708" r1="-0.999924" r2="-0.0102254" r3="0" r4="0.842022" r5="0.0113147" r6="-0.539325" r7="0" r8="0.5394" r9="-0.00489569" r10="0.842036" r11="0" r12="0" r13="0" r14="0" r15="1" id="7" color_r="1" color_g="1" color_b="1" type_file="Data/Objects/Crete/CreteBlockStandard.xml">
-        <parameters />
-    </EnvObject>
-    <EnvObject t0="-95.272" t1="16.0811" t2="36.7183" s0="2.88691" s1="0.307737" s2="0.469263" q0="-0.195919" q1="0.201489" q2="-0.675247" r0="0.00688708" r1="-0.999924" r2="-0.0102254" r3="0" r4="0.842022" r5="0.0113147" r6="-0.539325" r7="0" r8="0.5394" r9="-0.00489569" r10="0.842036" r11="0" r12="0" r13="0" r14="0" r15="1" id="8" color_r="1" color_g="1" color_b="1" type_file="Data/Objects/Crete/CreteBlockStandard.xml">
-        <parameters />
-    </EnvObject>
-    <EnvObject t0="-90.4284" t1="13.2468" t2="21.2279" s0="3.61253" s1="0.99991" s2="0.999905" q0="-0.195919" q1="0.201489" q2="-0.675247" r0="0.00688708" r1="-0.999924" r2="-0.0102254" r3="0" r4="0.842022" r5="0.0113147" r6="-0.539325" r7="0" r8="0.5394" r9="-0.00489569" r10="0.842036" r11="0" r12="0" r13="0" r14="0" r15="1" id="13" color_r="1" color_g="1" color_b="1" type_file="Data/Objects/Crete/CreteBlockStandard.xml">
-        <parameters />
-    </EnvObject>
-    <EnvObject t0="-103.146" t1="12.5789" t2="27.5063" s0="2.88665" s1="0.307709" s2="0.46922" q0="-0.195919" q1="0.201489" q2="-0.675247" r0="0.00688708" r1="-0.999924" r2="-0.0102254" r3="0" r4="0.842022" r5="0.0113147" r6="-0.539325" r7="0" r8="0.5394" r9="-0.00489569" r10="0.842036" r11="0" r12="0" r13="0" r14="0" r15="1" id="14" color_r="1" color_g="1" color_b="1" type_file="Data/Objects/Crete/CreteBlockStandard.xml">
-        <parameters />
-    </EnvObject>
-    <EnvObject t0="-103.546" t1="24.8938" t2="29.3876" s0="1.07831" s1="3.4161" s2="0.999894" q0="-0.195919" q1="0.201489" q2="-0.675247" r0="0.00688708" r1="-0.999924" r2="-0.0102254" r3="0" r4="0.842022" r5="0.0113147" r6="-0.539325" r7="0" r8="0.5394" r9="-0.00489569" r10="0.842036" r11="0" r12="0" r13="0" r14="0" r15="1" id="15" color_r="1" color_g="1" color_b="1" type_file="Data/Objects/Crete/CreteBlockStandard.xml">
-        <parameters />
-    </EnvObject>
-    <EnvObject t0="-111.064" t1="14.8625" t2="33.9539" s0="1.07831" s1="3.4161" s2="0.999894" q0="0.280889" q1="0.00911926" q2="0.958869" r0="-0.839027" r1="0.0815322" r2="0.537945" r3="0" r4="-0.0712862" r5="-0.996658" r6="0.0398715" r7="0" r8="0.539399" r9="-0.00489478" r10="0.842036" r11="0" r12="0" r13="0" r14="0" r15="1" id="16" color_r="1" color_g="1" color_b="1" type_file="Data/Objects/Crete/CreteBlockStandard.xml">
-        <parameters />
-    </EnvObject>
-    <ItemObject t0="-51.3105" t1="30.8751" t2="55.5947" s0="1" s1="1" s2="1" q0="0" q1="0" q2="0" r0="1" r1="0" r2="0" r3="0" r4="0" r5="1" r6="0" r7="0" r8="0" r9="0" r10="1" r11="0" r12="0" r13="0" r14="0" r15="1" id="17" type_file="Data/Items/DogWeapons/DogSpear.xml" color_r="1" color_g="1" color_b="1">
-        <parameters />
-    </ItemObject>
-    <ItemObject t0="-46.3293" t1="30.3685" t2="52.2573" s0="1" s1="1" s2="1" q0="0" q1="0" q2="0" r0="1" r1="0" r2="0" r3="0" r4="0" r5="1" r6="0" r7="0" r8="0" r9="0" r10="1" r11="0" r12="0" r13="0" r14="0" r15="1" id="18" type_file="Data/Items/DogWeapons/DogKnife.xml" color_r="1" color_g="1" color_b="1">
-        <parameters />
-    </ItemObject>
-    <CameraObject t0="-52.9842" t1="34.0263" t2="52.9801" s0="1" s1="1" s2="1" q0="0.0115568" q1="-0.977466" q2="0.20332" r0="-0.993559" r1="-2.04891e-08" r2="0.113315" r3="0" r4="-0.0451856" r5="0.917055" r6="-0.396193" r7="0" r8="-0.103916" r9="-0.398762" r10="-0.911148" r11="0" r12="0" r13="0" r14="0" r15="1" id="-1">
-        <parameters />
-    </CameraObject>
 </ActorObjects>
+<RecentItems />

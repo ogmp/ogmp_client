@@ -4,6 +4,24 @@
 float grab_key_time;
 bool listening = false;
 bool delay_jump;
+string MPUsername = "";
+int username_billboard = -1;
+
+bool MPWantsToCrouch = false;
+bool MPWantsToJump = false;
+bool MPWantsToAttack = false;
+bool MPWantsToGrab = false;
+bool MPWantsToItem = false;
+bool MPWantsToDrop = false;
+bool MPWantsToRoll = false;
+bool MPWantsToJumpOffWall = false;
+bool MPActiveBlock = false;
+bool MPIsConnected = false;
+float dir_z = 0.0f;
+float dir_x = 0.0f;
+
+enum PathFindType {_pft_nav_mesh, _pft_climb, _pft_drop, _pft_jump};
+PathFindType path_find_type = _pft_nav_mesh;
 
 Situation situation;
 
@@ -90,6 +108,23 @@ void UpdateBrain(const Timestep &in ts){
     if(delay_jump && !GetInputDown(this_mo.controller_id, "jump")){
         delay_jump = false;
     }
+	if(MPUsername != ""){
+		UpdatePlayerUsernameBillboard();
+	}
+}
+
+void UpdatePlayerUsernameBillboard(){
+	vec3 draw_offset = vec3(0.0f, 1.25f, 0.0f);
+	if(username_billboard != -1){
+		DebugDrawRemove(username_billboard);
+	}
+	username_billboard = DebugDrawText(this_mo.position + draw_offset, MPUsername, 50.0f, true, _persistent);
+}
+
+void MPRemoveBillboard(){
+	if(username_billboard != -1){
+		DebugDrawRemove(username_billboard);
+	}
 }
 
 void AIEndAttack(){
@@ -331,5 +366,21 @@ int GetRightFootPlanted(){
         return 1;
     }else{
         return 0;
+    }
+}
+bool StuckToNavMesh() {
+    if(path_find_type == _pft_nav_mesh){
+        vec3 nav_pos = GetNavPointPos(this_mo.position); 
+        if(abs(nav_pos[1] - this_mo.position[1]) > 1.0){
+            return false;
+        }
+        nav_pos[1] = this_mo.position[1];
+        if(distance(nav_pos, this_mo.position) < 0.1){
+            return true;
+        } else {
+            return false;
+        }
+    } else {
+        return false;
     }
 }
