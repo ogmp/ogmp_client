@@ -22,7 +22,7 @@
     <Tag>online</Tag>
 
     <!-- Specification for which version of the game that is supported. It's possible to specify more than one -->
-    <SupportedVersion>*</SupportedVersion>
+    <SupportedVersion>b3</SupportedVersion>
     <LevelHookFile>Data/Scripts/ogmp_clientconnect.as</LevelHookFile>
 	<!-- <MenuItem title="OGMP" category="play">Data/Scripts/ogmp_main_menu.as</MenuItem> -->
 </Mod>
