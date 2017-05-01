@@ -1029,6 +1029,9 @@ void AddPlayerListUI(){
 }
 
 void PostInit(){
+    //Workaround for the controller system out of bounds exception. TODO remove in later beta.
+    level.Execute(  "IMContainer container(200, 200); "+ 
+                    "AddControllerItem(container, IMMessage(\"nothing\"));");
 	player_id = GetPlayerCharacterID();
 	bool auto_connected = HandleConnectOnInit();
 	if(!auto_connected){
