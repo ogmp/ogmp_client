@@ -93,7 +93,6 @@ bool HandleConnectOnInit(){
 			username = StorageGetString("ogmp_username");
 			character = StorageGetString("ogmp_character");
 			level_name = StorageGetString("ogmp_level_name");
-			retriever_socket = CreateSocketTCP(current_server.address, current_server.port);
 			trying_to_connect = true;
 			return true;
 		}else{

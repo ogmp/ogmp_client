@@ -180,6 +180,7 @@ class ServerRetriever{
 		}
 	}
 	void ResetGetters(){
+        Log( info, "ResetGetters");
 		checked_online_servers = false;
 		got_level_list = false;
 		got_player_list = false;
@@ -245,15 +246,14 @@ class ServerRetriever{
 				start_time = GetPerformanceCounter();
 				retriever_socket = CreateSocketTCP(server_list[server_index].address, server_list[server_index].port);
 				if( retriever_socket != SOCKET_ID_INVALID ) {
+                    Log( info, "Connected " + retriever_socket );
 					server_list[server_index].latency = (GetPerformanceCounter() - start_time) * 1000.0 / GetPerformanceFrequency();					
 					online_servers.insertLast(server_list[server_index]);
-					GetNextServer();
 				} else {
 					Log( warning, "Unable to connect");
 				}
 			}
 			if( !IsValidSocketTCP(retriever_socket) ){
-				Log(info, "invalid");
 				retriever_socket = SOCKET_ID_INVALID;
 				connect_tries++;
 				if(connect_tries == max_connect_tries){
@@ -261,7 +261,6 @@ class ServerRetriever{
 					GetNextServer();
 				}
 			}else{
-				Log(info, "Send ServerInfo");
 				array<uint8> info_message = {ServerInfo};
 				SocketTCPSend(retriever_socket,info_message);
 				connect_tries = 0;
@@ -271,6 +270,7 @@ class ServerRetriever{
 		}
 	}
 	void SetServerInfo(string server_name_, int nr_players_){
+        Log(info, "SetServerInfo " + server_name_);
 		online_servers[online_servers.size() - 1].server_name = server_name_;
 		online_servers[online_servers.size() - 1].nr_players = nr_players_;
 		getting_server_info = false;
