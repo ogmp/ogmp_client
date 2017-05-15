@@ -93,7 +93,6 @@ bool HandleConnectOnInit(){
 			username = StorageGetString("ogmp_username");
 			character = StorageGetString("ogmp_character");
 			level_name = StorageGetString("ogmp_level_name");
-			retriever_socket = CreateSocketTCP(current_server.address, current_server.port);
 			trying_to_connect = true;
 			return true;
 		}else{
@@ -336,6 +335,9 @@ void ProcessIncomingMessage(array<uint8>@ data){
 MovementObject@ GetRemotePlayer(string username){
 	for(uint i = 0; i < remote_players.size(); i++){
 		if(remote_players[i].username == username){
+            if(!ObjectExists(remote_players[i].object_id)){
+                return null;
+            }
 			MovementObject@ found_remote_player = ReadCharacterID(remote_players[i].object_id);
 			return found_remote_player;
 		}
@@ -365,12 +367,11 @@ void CreateRemotePlayer(string username, string team, string character, vec3 pos
 void RemoveRemotePlayer(string username){
 	for(uint i = 0; i < remote_players.size(); i++){
 		MovementObject@ remote_player = ReadCharacterID(remote_players[i].object_id);
+        remote_player.Execute("situation.clear();");
 		if(remote_players[i].username == username){
 			remote_player.Execute("MPRemoveBillboard();");
 			DeleteObjectID(remote_players[i].object_id);
 			remote_players.removeAt(i);
-		}else{
-			remote_player.Execute("situation.clear();");
 		}
 	}
 	MovementObject@ player = ReadCharacterID(player_id);
@@ -1029,6 +1030,9 @@ void AddPlayerListUI(){
 }
 
 void PostInit(){
+    //Workaround for the controller system out of bounds exception. TODO remove in later beta.
+    level.Execute(  "IMContainer container(200, 200); "+ 
+                    "AddControllerItem(container, IMMessage(\"nothing\"));");
 	player_id = GetPlayerCharacterID();
 	bool auto_connected = HandleConnectOnInit();
 	if(!auto_connected){
@@ -1048,7 +1052,10 @@ void Update(int paused) {
 	if(player_id == -1){
 		player_id = GetPlayerCharacterID();
 		return;
-	}
+	}else if(!ObjectExists(player_id)){
+        player_id = -1;
+        return;
+    }
     if(connected_to_server){
 		UpdateTimeCriticalPlayerVariables();
 		if(update_timer > interval){
@@ -1242,6 +1249,7 @@ void KeyChecks(){
 		}
 	}else if(GetInputPressed(controller_id, "f12")){
 		if(cc_ui_added){
+            server_retriever.ResetGetters();
 			RemoveUI();
 		}else{
 			AddUI();
@@ -1556,12 +1564,14 @@ void RemoveAllExceptPlayer() {
     for(int i=0; i<num; ++i){
         MovementObject@ char = ReadCharacter(i);
         if(char.GetID() != player_id){
+            char.Execute("MPRemoveBillboard();");
             remove_ids.insertLast(char.GetID());
         }
     }
 	for(uint i=0; i<remove_ids.size(); ++i){
 		DeleteObjectID(remove_ids[i]);
 	}
+    remote_players.resize(0);
 	MovementObject@ player = ReadCharacterID(player_id);
 	player.Execute("situation.clear();");	
 }
