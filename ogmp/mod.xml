@@ -9,7 +9,7 @@
     <Version>0.1.0</Version>
     <!-- Your immortal stamp -->
     <Author>Gyrth and Surak</Author>
-	<Category>Level Script</Category>
+    <Category>Level Script</Category>
     <!-- Thumbnail used in-game, no strict size is defined yet, should be 16:9 -->
     <Thumbnail>Data/Images/ogmp_thumb.jpg</Thumbnail>
     <!-- First preview image will be used as preview on steamworks, you can add additional ones -->
@@ -17,12 +17,12 @@
 	<Description>The Overgrowth Multiplayer Mod is an unofficial addition to Overgrowth. It has a server browser, multiple maps per server, in-game chat and a teleportation system.</Description>
 	<!-- Tags sent to and mainly used by steam workshop -->
     <Tag>multiplayer</Tag>
-	<Tag>scripting</Tag>
-	<Tag>ogmp</Tag>
+    <Tag>scripting</Tag>
+    <Tag>ogmp</Tag>
     <Tag>online</Tag>
 
     <!-- Specification for which version of the game that is supported. It's possible to specify more than one -->
-    <SupportedVersion>b3</SupportedVersion>
+    <SupportedVersion>b4</SupportedVersion>
     <LevelHookFile>Data/Scripts/ogmp_clientconnect.as</LevelHookFile>
-	<!-- <MenuItem title="OGMP" category="play">Data/Scripts/ogmp_main_menu.as</MenuItem> -->
+    <!-- <MenuItem title="OGMP" category="play">Data/Scripts/ogmp_main_menu.as</MenuItem> -->
 </Mod>
