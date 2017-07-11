@@ -1,7 +1,7 @@
 FontSetup main_font("arial", 30 , vec4(0,0,0,0.75), false);
 FontSetup error_font("arial", 40 , vec4(0.85,0,0,0.75), true);
 FontSetup client_connect_font("arial", 30 , vec4(1,1,1,0.75), true);
-FontSetup client_connect_font_small("arial", 20 , vec4(1,1,1,0.75), true);
+FontSetup client_connect_font_small("arial", 25 , vec4(1,1,1,0.75), true);
 IMMouseOverPulseColor mouseover_fontcolor(vec4(1), vec4(1), 5.0f);
 IMPulseAlpha pulse(1.0f, 0.0f, 2.0f);
 string connected_icon = "Images/connected.png";

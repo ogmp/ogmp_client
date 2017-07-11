@@ -85,14 +85,8 @@ void Init(string p_level_name) {
 
 string GetLevelPath(){
 	string level_path = GetCurrLevel();
-	if(level_path.findFirst("steamapps") != -1){
-		array<string> separated_path = level_path.split("Data");
-		level_path = "Data" + separated_path[1];
-		Print("---------\n");
-		Print("Current level before " + GetCurrLevel() + "\n");
-		Print("Current level " + level_path + "\n");
-		Print("---------\n");
-	}
+	array<string> separated_path = level_path.split("Data");
+	level_path = "Data" + separated_path[1];
 	return level_path;
 }
 
@@ -794,7 +788,6 @@ void AddLevelListUI(){
 	titlebar_divider.append(nr_players_label_container);
 	
 	bool server_includes_this_level = false;
-	
 	for(uint i = 0; i < current_server.levels.size(); i++){
 		if(current_server.levels[i].level_path == level_path){
 			server_includes_this_level = true;
