@@ -73,7 +73,7 @@ IMDivider@ error_divider;
 Dropdown@ dropdown;
 
 void Init(string p_level_name) {
-    level_path = GetCurrLevel();
+	level_path = GetLevelPath();
 	level_name = p_level_name;
 	imGUI.setFooterHeight(350);
 	imGUI.setHeaderHeight(100);
@@ -81,6 +81,19 @@ void Init(string p_level_name) {
 	imGUI.getHeader().setAlignment(CALeft, CACenter);
 	character = character_options[0];
 	chat.Initialize();
+}
+
+string GetLevelPath(){
+	string level_path = GetCurrLevel();
+	if(level_path.findFirst("steamapps") != -1){
+		array<string> separated_path = level_path.split("Data");
+		level_path = "Data" + separated_path[1];
+		Print("---------\n");
+		Print("Current level before " + GetCurrLevel() + "\n");
+		Print("Current level " + level_path + "\n");
+		Print("---------\n");
+	}
+	return level_path;
 }
 
 bool HandleConnectOnInit(){
