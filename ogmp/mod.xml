@@ -14,8 +14,8 @@
     <Thumbnail>Data/Images/ogmp_thumb.jpg</Thumbnail>
     <!-- First preview image will be used as preview on steamworks, you can add additional ones -->
     <PreviewImage>Data/Images/ogmp_full.jpg</PreviewImage>
-	<Description>The Overgrowth Multiplayer Mod is an unofficial addition to Overgrowth. It has a server browser, multiple maps per server, in-game chat and a teleportation system.</Description>
-	<!-- Tags sent to and mainly used by steam workshop -->
+    <Description>The Overgrowth Multiplayer Mod is an unofficial addition to Overgrowth. It has a server browser, multiple maps per server, in-game chat and a teleportation system.</Description>
+    <!-- Tags sent to and mainly used by steam workshop -->
     <Tag>multiplayer</Tag>
     <Tag>scripting</Tag>
     <Tag>ogmp</Tag>

@@ -1,13 +1,14 @@
-FontSetup main_font("arial", 30 , vec4(0,0,0,0.75), false);
-FontSetup error_font("arial", 40 , vec4(0.85,0,0,0.75), true);
-FontSetup client_connect_font("arial", 30 , vec4(1,1,1,0.75), true);
-FontSetup client_connect_font_small("arial", 25 , vec4(1,1,1,0.75), true);
+FontSetup main_font("arial", 25 , vec4(0,0,0,0.75), false);
+FontSetup error_font("arial", 25 , vec4(0.85,0,0,0.75), true);
+FontSetup client_connect_font("arial", 25 , vec4(1,1,1,0.75), true);
+FontSetup client_connect_font_small("arial", 20 , vec4(1,1,1,0.75), true);
 IMMouseOverPulseColor mouseover_fontcolor(vec4(1), vec4(1), 5.0f);
 IMPulseAlpha pulse(1.0f, 0.0f, 2.0f);
 string connected_icon = "Images/connected.png";
 string disconnected_icon = "Images/disconnected.png";
 string white_background = "Textures/ui/menus/main/white_square.png";
 string brushstroke_background = "Textures/ui/menus/main/brushStroke.png";
+string custom_address_icon = "Textures/ui/menus/main/icon-lock.png";
 
 string turner = "Data/Characters/ogmp/turner.xml";
 
@@ -16,7 +17,7 @@ array<string> nouns = {"Cat", "Walnut", "Bird", "Cookie", "Aardvark", "Boy", "Da
 array<string> character_names = {"Turner", "Guard", "Raider Rabbit", "Pale Turner", "Cat", "Female Rabbit", "Rat", "Female Rat", "Hooded Rat", "Light Armored Dog Big", "Rabbot", "Wolf"};
 array<string> character_options = {"turner", "guard", "raider_rabbit", "pale_turner", "cat", "female_rabbit_1", "rat", "female_rat", "hooded_rat", "lt_dog_big", "rabbot", "wolf"};
 
-//Message types 
+//Message types
 uint8 SignOn = 0;
 uint8 Message = 1;
 uint8 TimeOut = 2;
@@ -37,10 +38,7 @@ uint main_socket = SOCKET_ID_INVALID;
 
 ServerRetriever server_retriever;
 
-array<ServerConnectionInfo@> server_list = {	//ServerConnectionInfo("127.0.0.1", 2000),
-												//ServerConnectionInfo("127.0.0.1", 80),
-												//ServerConnectionInfo("127.0.0.1", 1337),
-												ServerConnectionInfo("52.56.230.41", 2000)};
+array<ServerConnectionInfo@> server_list = {	ServerConnectionInfo("52.56.230.41", 2000)	};
 
 class ServerConnectionInfo{
 	string server_name;
@@ -76,6 +74,7 @@ class Dropdown{
 	void AddDropdown(){
 		parent.setSize(button_size);
 		IMText first_option(option_names[index], client_connect_font);
+		first_option.addMouseOverBehavior(mouseover_fontcolor, "");
 		first_option.setZOrdering(2);
 		parent.setElement(first_option);
 		parent.addLeftMouseClickBehavior(IMFixedMessageOnClick("activate_dropdown"), "");
@@ -97,18 +96,18 @@ class Dropdown{
 	void Activate(){
 		parent.clearLeftMouseClickBehaviors();
 		parent.clear();
-		
+
 		IMContainer options_holder(button_size.x, button_size.y);
 		IMDivider options_divider("options_divider", DOVertical);
 		options_holder.addFloatingElement(options_divider, "options_divider", vec2(button_size_offset / 2.0f));
-		
+
 		IMImage main_background(white_background);
 		main_background.setClip(false);
 		main_background.setZOrdering(4);
 		main_background.setSize(vec2(button_size.x, button_size.y * options.size()));
 		main_background.setColor(vec4(0,0,0,0.75));
 		options_holder.addFloatingElement(main_background, "option_background", vec2(button_size_offset / 2.0f));
-		
+
 		for(uint i = 0; i < options.size(); i++){
 			IMContainer option_holder(button_size.x, button_size.y);
 			option_holder.sendMouseOverToChildren(true);
@@ -117,7 +116,7 @@ class Dropdown{
 			option_holder.addLeftMouseClickBehavior(IMFixedMessageOnClick("option_chosen", options[i]), "");
 			option_label.setZOrdering(6);
 			option_holder.setElement(option_label);
-			
+
 			IMImage background(white_background);
 			background.setZOrdering(4);
 			background.setSize(button_size - button_size_offset);
@@ -125,7 +124,7 @@ class Dropdown{
 			option_holder.addFloatingElement(background, "option_background", vec2(button_size_offset / 2.0f));
 			options_divider.append(option_holder);
 		}
-		
+
 		parent.setElement(options_holder);
 	}
 }
@@ -165,6 +164,7 @@ class ServerRetriever{
 	bool checked_online_servers = false;
 	bool got_level_list = false;
 	bool got_player_list = false;
+	bool checking_custom_address = false;
 	void Update(){
 		if(getting_server_info){
 			UpdateGetServerInfo();
@@ -178,9 +178,12 @@ class ServerRetriever{
 		else if(checking_servers){
 			UpdateCheckingServers();
 		}
+		else if(checking_custom_address){
+			UpdateCheckingCustomAddress();
+		}
 	}
 	void ResetGetters(){
-        Log( info, "ResetGetters");
+    Log( info, "ResetGetters");
 		checked_online_servers = false;
 		got_level_list = false;
 		got_player_list = false;
@@ -216,7 +219,7 @@ class ServerRetriever{
 		}
 	}
 	void UpdateGetServerInfo(){
-		
+
 	}
 	void UpdateGetPlayerList(){
 		timer += time_step;
@@ -234,6 +237,38 @@ class ServerRetriever{
 			}
 		}
 	}
+	void UpdateCheckingCustomAddress(){
+		timer += time_step;
+		//Every interval check for a connection
+		if(timer > connect_try_interval){
+			timer = 0.0f;
+			if( retriever_socket == SOCKET_ID_INVALID ) {
+				start_time = GetPerformanceCounter();
+				Log( info, "Trying " + current_server.address + current_server.port );
+				retriever_socket = CreateSocketTCP(current_server.address, current_server.port);
+				if( retriever_socket != SOCKET_ID_INVALID ) {
+					Log( info, "Connected " + retriever_socket );
+				} else {
+					Log( warning, "Unable to connect");
+				}
+			}
+			if( !IsValidSocketTCP(retriever_socket) ){
+				retriever_socket = SOCKET_ID_INVALID;
+				connect_tries++;
+				if(connect_tries == max_connect_tries){
+					connect_tries = 0;
+					checking_custom_address = false;
+					AddError("Nope. Cannot connect to this address.");
+				}else{
+					AddError("Trying to connect...");
+				}
+			}else{
+				connect_tries = 0;
+				checking_custom_address = false;
+				GetLevelList();
+			}
+		}
+	}
 	void UpdateCheckingServers(){
 		if(server_index >= int(server_list.size())){
 			return;
@@ -247,7 +282,7 @@ class ServerRetriever{
 				retriever_socket = CreateSocketTCP(server_list[server_index].address, server_list[server_index].port);
 				if( retriever_socket != SOCKET_ID_INVALID ) {
                     Log( info, "Connected " + retriever_socket );
-					server_list[server_index].latency = (GetPerformanceCounter() - start_time) * 1000.0 / GetPerformanceFrequency();					
+					server_list[server_index].latency = (GetPerformanceCounter() - start_time) * 1000.0 / GetPerformanceFrequency();
 					online_servers.insertLast(server_list[server_index]);
 				} else {
 					Log( warning, "Unable to connect");
@@ -332,6 +367,7 @@ class Inputfield {
 	IMText@ input_field;
 	IMDivider@ parent;
 	string query = "";
+	string query_name = "empty";
 	string backup_query;
 	int current_index = 0;
 	int cursor_offset = 0;
@@ -341,16 +377,15 @@ class Inputfield {
 	float long_press_interval = 0.1f;
 	uint max_query_length = 20;
 	Inputfield(){
-		
 	}
 	void Activate(){
 		if(active){return;}
-		
+
 		//Freeze the player so it doesn't walk around.
 		MovementObject@ player = ReadCharacterID(player_id);
 		player.velocity = vec3(0);
 		player.Execute("SetState(_ground_state);");
-		
+
 		backup_query = input_field.getText();
 		query = "";
 		active = true;
@@ -362,7 +397,6 @@ class Inputfield {
 			initial_sequence_id = -1;
 		}
 		parent.clear();
-		/*parent.clearLeftMouseClickBehaviors();*/
 		IMText new_input_field("", client_connect_font);
 		parent.append(new_input_field);
 		@input_field = @new_input_field;
@@ -378,12 +412,17 @@ class Inputfield {
 			query = backup_query;
 		}
 		IMText new_input_field(query, client_connect_font);
+		new_input_field.addMouseOverBehavior(mouseover_fontcolor, "");
 		parent.append(new_input_field);
 		@input_field = @new_input_field;
+		IMMessage update_value("update_value", query_name);
+		update_value.addString(query);
+		imGUI.getMain().sendMessage(update_value);
 	}
-	void SetInputField(IMText@ _input_field, IMDivider@ _parent){
+	void SetInputField(IMText@ _input_field, IMDivider@ _parent, string _query_name){
 		@input_field = @_input_field;
 		@parent = @_parent;
+		query_name = _query_name;
 	}
 	void Update(){
 		if(active){
@@ -461,7 +500,7 @@ class Inputfield {
 					long_press_timer = 0.0f;
 				}
 			}
-			
+
 			array<KeyboardPress> inputs = GetRawKeyboardInputs();
 			if(inputs.size() > 0){
 				uint16 possible_new_input = inputs[inputs.size()-1].s_id;
@@ -470,11 +509,11 @@ class Inputfield {
 					initial_sequence_id = inputs[inputs.size()-1].s_id;
 					//Print("new input = "+ keycode + "\n");
 					bool get_upper_case = false;
-					
+
 					if(GetInputDown(ReadCharacterID(player_id).controller_id, "shift")){
 						get_upper_case =true;
 					}
-					
+
 					array<int> ignore_keycodes = {27};
 					if(ignore_keycodes.find(keycode) != -1 || keycode > 500){
 						return;
@@ -485,7 +524,6 @@ class Inputfield {
 						cursor_offset = 0;
 						active = false;
 						pressed_return = true;
-						username = query;
 						//Put the player state back so it can walk again.
 						MovementObject@ player = ReadCharacterID(player_id);
 						player.velocity = vec3(0);
@@ -553,10 +591,10 @@ class Inputfield {
 		}
 	}
 	void ShowSearchResults(){
-		
+
 	}
 	void GetSearchResults(string query){
-		
+
 	}
 }
 uint32 ToUpperCase(uint32 input){

@@ -8,12 +8,16 @@ int initial_sequence_id;
 IMGUI imGUI;
 Chat chat;
 Inputfield username_field;
+Inputfield address_field;
+Inputfield port_field;
+
 
 enum ClientUIState {
 	UsernameUI = 0,
 	ServerListUI = 1,
 	LevelListUI = 2,
-	PlayerListUI = 3
+	PlayerListUI = 3,
+	CustomAddressUI = 4
 }
 
 ClientUIState currentUIState = UsernameUI;
@@ -71,6 +75,8 @@ array<uint8>@ data_collection = {};
 ServerConnectionInfo@ current_server;
 IMDivider@ error_divider;
 Dropdown@ dropdown;
+string address = "127.0.0.1";
+string port = "9000";
 
 void Init(string p_level_name) {
 	level_path = GetLevelPath();
@@ -160,7 +166,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		string message_source = GetString(data, data_index);
 		string message_text = GetString(data, data_index);
 		bool notif = GetBool(data, data_index);
-		
+
 		chat.AddMessage(message_text, message_source, notif);
 	}
 	else if (message_type == SpawnCharacter){
@@ -180,7 +186,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 	}
 	else if (message_type == UpdateSelf){
 		MovementObject@ player = ReadCharacterID(player_id);
-		
+
 		float blooddamage = GetFloat(data, data_index);
 		float bloodhealth = GetFloat(data, data_index);
 		float blockhealth = GetFloat(data, data_index);
@@ -192,7 +198,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		int ragdoll_type = GetInt(data, data_index);
 		bool removeblood = GetBool(data, data_index);
 		bool cutthroat = GetBool(data, data_index);
-		
+
 		player.Execute("blood_damage = " + blooddamage + ";");
 		player.Execute("blood_health = " + bloodhealth + ";");
 		player.Execute("block_health = " + blockhealth + ";");
@@ -203,7 +209,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		player.Execute("roll_recovery_time = " + rollrecoverytime + ";");
 		player.Execute("ragdoll_type = " + ragdoll_type + ";");
 		player.Execute("cut_throat = " + cutthroat + ";");
-		
+
 		if(removeblood){
 			player.Execute("Recover();");
 		}
@@ -215,7 +221,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		float remote_posz = GetFloat(data, data_index);
 		float remote_dirx = GetFloat(data, data_index);
 		float remote_dirz = GetFloat(data, data_index);
-		
+
 		bool remote_crouch = GetBool(data, data_index);
 		bool remote_jump = GetBool(data, data_index);
 		bool remote_attack = GetBool(data, data_index);
@@ -225,20 +231,20 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		bool remote_roll = GetBool(data, data_index);
 		bool remote_jumpoffwall = GetBool(data, data_index);
 		bool remote_activateblock = GetBool(data, data_index);
-		
+
 		float remote_blooddamage = GetFloat(data, data_index);
 		float remote_bloodhealth = GetFloat(data, data_index);
 		float remote_blockhealth = GetFloat(data, data_index);
 		float remote_temphealth = GetFloat(data, data_index);
 		float remote_permanenthealth = GetFloat(data, data_index);
-		
+
 		int remote_knockedout = GetInt(data, data_index);
-		
+
 		float remote_bloodamount = GetFloat(data, data_index);
 		float remote_recoverytime = GetFloat(data, data_index);
 		float remote_rollrecoverytime = GetFloat(data, data_index);
 		int remote_ragdolltype = GetInt(data, data_index);
-		
+
 		bool remote_removeblood = GetBool(data, data_index);
 		int remote_blooddelay = GetInt(data, data_index);
 		bool remote_cutthroat = GetBool(data, data_index);
@@ -259,7 +265,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 			remote_player.Execute("MPWantsToJumpOffWall = " + remote_jumpoffwall + ";");
 			remote_player.Execute("MPActiveBlock = " + remote_activateblock + ";");
 			remote_player.Execute("MPActiveBlock = " + remote_activateblock + ";");
-			
+
 			remote_player.Execute("blood_damage = " + remote_blooddamage + ";");
 			remote_player.Execute("blood_health = " + remote_bloodhealth + ";");
 			remote_player.Execute("block_health = " + remote_blockhealth + ";");
@@ -268,7 +274,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 			remote_player.Execute("blood_amount = " + remote_bloodamount + ";");
 			remote_player.Execute("recovery_time = " + remote_recoverytime + ";");
 			remote_player.Execute("roll_recovery_time = " + remote_rollrecoverytime + ";");
-			
+
 			remote_player.Execute("ragdoll_type = " + remote_ragdolltype + ";");
 			remote_player.Execute("knocked_out = " + remote_knockedout + ";");
 			remote_player.Execute("blood_delay = " + remote_blooddelay + ";");
@@ -284,7 +290,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 			AddError(GetString(data, data_index));
 		}else{
 			@error_divider = IMDivider("error_divider", DOHorizontal);
-			
+
 			IMContainer container(1000, 50);
 			IMDivider divider("holder", DOVertical);
 			container.setElement(divider);
@@ -298,7 +304,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 			background.setSize(vec2(1000, 1000));
 			background.setColor(vec4(0,0,0,0.75));
 			container.addFloatingElement(background, "background", vec2(0.0f));
-			
+
 			error_divider.append(container);
 			imGUI.getMain().setElement(error_divider);
 		}
@@ -421,6 +427,9 @@ void AddUI(){
 		case ServerListUI:
 			AddServerListUI();
 			break;
+		case CustomAddressUI:
+			AddCustomAddressUI();
+			break;
 		case LevelListUI:
 			AddLevelListUI();
 			break;
@@ -451,6 +460,7 @@ void AddUsernameUI(){
 	vec4 background_color(0,0,0,0.5);
 	vec2 button_size(1000, 60);
 	vec2 option_size(900, 60);
+	vec2 connect_button_size(1000, 60);
 	float button_size_offset = 10.0f;
 	float description_width = 200.0f;
 
@@ -460,7 +470,7 @@ void AddUsernameUI(){
 	menu_container.setElement(menu_divider);
 
 	menu_divider.appendSpacer(10);
-	
+
 	{
 		//Choose a username and character
 		IMContainer container(button_size.x, button_size.y);
@@ -478,101 +488,107 @@ void AddUsernameUI(){
 		background.setAlpha(0.85f);
 		container.addFloatingElement(background, "background", vec2(container.getSizeX() / 2.0f - background.getSizeX() / 2.0f,0));
 	}
-	
+
 	menu_divider.appendSpacer(10);
-	
+
 	{
 		//Username input field.
 		IMContainer username_container(option_size.x, option_size.y);
 		IMDivider username_divider("username_divider", DOHorizontal);
 		IMContainer username_parent_container(button_size.x / 2.0f, button_size.y);
+		username_parent_container.sendMouseOverToChildren(true);
+		username_parent_container.sendMouseDownToChildren(true);
 		IMDivider username_parent("username_parent", DOHorizontal);
 		username_parent_container.setElement(username_parent);
 		username_container.setElement(username_divider);
-		username_parent_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("activate_search"), "");
-		
+		username_parent_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("activate_username_field"), "");
+
 		IMContainer description_container(description_width, option_size.y);
 		IMText description_label("Username: ", client_connect_font);
 		description_container.setElement(description_label);
 		description_label.setZOrdering(3);
 		username_divider.append(description_container);
-		
+
 		username_divider.appendSpacer(25);
-		
+
 		IMText username_label(username, client_connect_font);
+		username_label.addMouseOverBehavior(mouseover_fontcolor, "");
 		username_label.setZOrdering(3);
 		username_parent.append(username_label);
 		username_divider.append(username_parent_container);
-		
+
 		IMImage username_background(white_background);
 		username_background.setZOrdering(0);
 		username_background.setSize(500 - button_size_offset);
 		username_background.setColor(vec4(0,0,0,0.75));
 		username_parent_container.addFloatingElement(username_background, "username_background", vec2(button_size_offset / 2.0f));
-		
-		username_field.SetInputField(@username_label, @username_parent);
+
+		username_field.SetInputField(@username_label, @username_parent, "username");
 		menu_divider.append(username_container);
 	}
-		
+
 	{
 		//Character dropdown.
 		IMContainer container(option_size.x, option_size.y);
 		IMDivider divider("character_divider", DOHorizontal);
 		container.setElement(divider);
-		
+
 		IMContainer parent_container(button_size.x / 2.0f, button_size.y);
+		// parent_container.sendMouseOverToChildren(true);
+		// parent_container.sendMouseDownToChildren(true);
 		IMDivider parent_divider("username_parent", DOHorizontal);
 		parent_container.setElement(parent_divider);
-	
+
 		IMContainer description_container(description_width, option_size.y);
 		IMText label("Character: ", client_connect_font);
 		description_container.setElement(label);
 		label.setZOrdering(3);
 		divider.append(description_container);
-		
+
 		divider.appendSpacer(25);
-		
+
 		IMText character_label("", client_connect_font);
 		character_label.setZOrdering(3);
 		parent_divider.append(character_label);
 		divider.append(parent_container);
-		
+
 		Dropdown new_dropdown(character_options, character_names, character, parent_container);
 		@dropdown = @new_dropdown;
-		
+
 		menu_divider.append(container);
 	}
-	
-	menu_divider.appendSpacer(10);
-	//The next button
-	IMContainer container(button_size.x, button_size.y);
-	container.setAlignment(CARight, CACenter);
-	
-	IMContainer button_container(200, button_size.y);
-	button_container.setAlignment(CACenter, CACenter);
-	button_container.sendMouseDownToChildren(true);
-	container.setElement(button_container);
+
+	menu_divider.appendSpacer(20);
+
+	//The button container at the bottom of the UI.
+	IMContainer button_container(connect_button_size.x, connect_button_size.y);
+	button_container.setAlignment(CARight, CACenter);
 	IMDivider button_divider("button_divider", DOHorizontal);
-	button_divider.setZOrdering(4);
 	button_container.setElement(button_divider);
-	
-	IMText button("Next", client_connect_font);
-	button.addMouseOverBehavior(mouseover_fontcolor, "");
-	button_divider.append(button);
-	button_divider.appendSpacer(50);
-	
-	/*button_container.showBorder();
-	button.showBorder();
-	container.showBorder();*/
-	
-	IMImage button_background(white_background);
-	button_background.setZOrdering(0);
-	button_background.setSize(vec2(200 - button_size_offset, button_size.y - button_size_offset));
-	button_background.setColor(vec4(0,0,0,0.75));
-	button_container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
-	
-	button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("next_ui"), "");
-	menu_divider.append(container);
+	menu_divider.append(button_container);
+
+	{
+		//The next button
+		IMContainer next_button_container(200, connect_button_size.y);
+		next_button_container.sendMouseOverToChildren(true);
+		next_button_container.sendMouseDownToChildren(true);
+		next_button_container.setAlignment(CACenter, CACenter);
+		IMDivider next_button_divider("next_button_divider", DOHorizontal);
+		next_button_divider.setZOrdering(4);
+		next_button_container.setElement(next_button_divider);
+		IMText next_button("Next", client_connect_font);
+		next_button.addMouseOverBehavior(mouseover_fontcolor, "");
+		next_button_divider.append(next_button);
+
+		IMImage next_button_background(white_background);
+		next_button_background.setZOrdering(0);
+		next_button_background.setSize(vec2(200 - button_size_offset, connect_button_size.y - button_size_offset));
+		next_button_background.setColor(vec4(0,0,0,0.75));
+		next_button_container.addFloatingElement(next_button_background, "next_button_background", vec2(button_size_offset / 2.0f));
+
+		next_button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("next_ui"), "");
+		button_divider.append(next_button_container);
+	}
 
 	//The main background
 	IMImage background(white_background);
@@ -594,16 +610,16 @@ void AddServerListUI(){
 	int server_name_width = 500;
 	int latency_width = 200;
 	int nr_players_width = 200;
-	
+
 	server_retriever.CheckOnlineServers();
-	
+
 	IMContainer menu_container(menu_size.x, menu_size.y);
 	menu_container.setAlignment(CACenter, CATop);
 	IMDivider menu_divider("menu_divider", DOVertical);
 	menu_container.setElement(menu_divider);
-	
+
 	menu_divider.appendSpacer(10);
-	
+
 	//Pick a server titlebar
 	IMContainer pick_server_container(connect_button_size.x, connect_button_size.y);
 	menu_divider.append(pick_server_container);
@@ -612,6 +628,15 @@ void AddServerListUI(){
 	pick_server_container.setElement(pick_server_divider);
 	IMText pick_server("Pick a server", client_connect_font);
 	pick_server_divider.append(pick_server);
+
+	//Custom address button
+	IMImage custom_address_image(custom_address_icon);
+	custom_address_image.scaleToSizeY(50);
+	pick_server_container.addFloatingElement(custom_address_image, "custom_address_image", vec2(button_size_offset / 2.0f), 0);
+	custom_address_image.setColor(client_connect_font_small.color);
+	custom_address_image.addMouseOverBehavior(mouseover_fontcolor, "");
+	custom_address_image.addLeftMouseClickBehavior(IMFixedMessageOnClick("custom_address"), "");
+
 	//Title background
 	IMImage pick_server_background(brushstroke_background);
 	pick_server_background.setZOrdering(2);
@@ -619,39 +644,39 @@ void AddServerListUI(){
 	pick_server_background.setSize(vec2(500, 60));
 	pick_server_background.setAlpha(0.85f);
 	pick_server_container.addFloatingElement(pick_server_background, "pick_server_background", vec2(pick_server_container.getSizeX() / 2.0f - pick_server_background.getSizeX() / 2.0f,0));
-	
+
 	//Server browser titlebar
 	IMContainer titlebar_container(connect_button_size.x, connect_button_size.y);
 	menu_divider.append(titlebar_container);
 	IMDivider titlebar_divider("titlebar_divider", DOHorizontal);
 	titlebar_divider.setZOrdering(4);
 	titlebar_container.setElement(titlebar_divider);
-	
+
 	IMContainer servername_label_container(server_name_width);
 	IMText servername_label("Server name", client_connect_font);
 	servername_label.setZOrdering(4);
 	servername_label_container.setElement(servername_label);
 	titlebar_divider.append(servername_label_container);
-	
+
 	IMContainer latency_label_container(latency_width);
 	IMText latency_label("Latency", client_connect_font);
 	latency_label.setZOrdering(4);
 	latency_label_container.setElement(latency_label);
 	titlebar_divider.append(latency_label_container);
-	
+
 	IMContainer nr_players_label_container(nr_players_width);
 	IMText nr_players_label("Nr players", client_connect_font);
 	nr_players_label.setZOrdering(4);
 	nr_players_label_container.setElement(nr_players_label);
 	titlebar_divider.append(nr_players_label_container);
-	
+
 	for(uint i = 0; i < server_retriever.online_servers.size(); i++){
 		//Connect button
 		IMContainer button_container(connect_button_size.x, connect_button_size.y);
 		button_container.sendMouseOverToChildren(true);
 		IMDivider button_divider("button_divider", DOHorizontal);
 		button_container.setElement(button_divider);
-		
+
 		button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("server_chosen", i), "");
 		menu_divider.append(button_container);
 
@@ -662,7 +687,7 @@ void AddServerListUI(){
 		server_name.addMouseOverBehavior(mouseover_fontcolor, "");
 		servername_container.setElement(server_name);
 		button_divider.append(servername_container);
-		
+
 		//The latency
 		IMContainer latency_container(latency_width);
 		IMText latency(server_retriever.online_servers[i].latency + " ms", client_connect_font_small);
@@ -670,7 +695,7 @@ void AddServerListUI(){
 		latency.addMouseOverBehavior(mouseover_fontcolor, "");
 		latency_container.setElement(latency);
 		button_divider.append(latency_container);
-		
+
 		//The number of players
 		IMContainer nr_players_container(nr_players_width);
 		IMText nr_players(server_retriever.online_servers[i].nr_players + "", client_connect_font_small);
@@ -678,14 +703,14 @@ void AddServerListUI(){
 		nr_players.addMouseOverBehavior(mouseover_fontcolor, "");
 		nr_players_container.setElement(nr_players);
 		button_divider.append(nr_players_container);
-		
+
 		IMImage button_background(white_background);
 		button_background.setZOrdering(0);
 		button_background.setSize(connect_button_size - button_size_offset);
 		button_background.setColor(vec4(0,0,0,0.75));
 		button_container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
 	}
-	
+
 	IMDivider info_divider("info_divider", DOHorizontal);
 	menu_divider.append(info_divider);
 	if(server_retriever.checking_servers){
@@ -695,34 +720,43 @@ void AddServerListUI(){
 		IMText info("No online servers found.", client_connect_font_small);
 		info_divider.append(info);
 	}
-	
+
 	//The errors are put in this divider
 	@error_divider = IMDivider("error_divider", DOVertical);
 	menu_divider.append(error_divider);
-	
+
+	menu_divider.appendSpacer(20);
+
+	//The button container at the bottom of the UI.
+	IMContainer button_container(connect_button_size.x, connect_button_size.y);
+	button_container.setAlignment(CALeft, CACenter);
+	IMDivider button_divider("button_divider", DOHorizontal);
+	button_container.setElement(button_divider);
+	menu_divider.append(button_container);
+
 	{
-		menu_divider.appendSpacer(10);
 		//The previous button
-		IMContainer button_container(connect_button_size.x, connect_button_size.y);
-		button_container.setAlignment(CALeft, CACenter);
-		IMDivider button_divider("button_divider", DOHorizontal);
-		button_divider.setZOrdering(4);
-		button_container.setElement(button_divider);
-		button_divider.appendSpacer(50);
-		IMText button("Previous", client_connect_font);
-		button.addMouseOverBehavior(mouseover_fontcolor, "");
-		button_divider.append(button);
-		
-		IMImage button_background(white_background);
-		button_background.setZOrdering(0);
-		button_background.setSize(vec2(200, connect_button_size.y - button_size_offset));
-		button_background.setColor(vec4(0,0,0,0.75));
-		button_container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
-		
-		button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("previous_ui"), "");
-		menu_divider.append(button_container);
+		IMContainer previous_button_container(200, connect_button_size.y);
+		previous_button_container.sendMouseOverToChildren(true);
+		previous_button_container.sendMouseDownToChildren(true);
+		previous_button_container.setAlignment(CACenter, CACenter);
+		IMDivider previous_button_divider("previous_button_divider", DOHorizontal);
+		previous_button_divider.setZOrdering(4);
+		previous_button_container.setElement(previous_button_divider);
+		IMText previous_button("Previous", client_connect_font);
+		previous_button.addMouseOverBehavior(mouseover_fontcolor, "");
+		previous_button_divider.append(previous_button);
+
+		IMImage previous_button_background(white_background);
+		previous_button_background.setZOrdering(0);
+		previous_button_background.setSize(vec2(200 - button_size_offset, connect_button_size.y - button_size_offset));
+		previous_button_background.setColor(vec4(0,0,0,0.75));
+		previous_button_container.addFloatingElement(previous_button_background, "previous_button_background", vec2(button_size_offset / 2.0f));
+
+		previous_button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("previous_ui"), "");
+		button_divider.append(previous_button_container);
 	}
-	
+
 	//The main background
 	IMImage background(white_background);
 	background.setColor(background_color);
@@ -730,6 +764,186 @@ void AddServerListUI(){
 	menu_container.addFloatingElement(background, "background", vec2(0));
 	imGUI.getMain().setSize(vec2(2560, 1000));
 	/*imGUI.getMain().setAlignment(CACenter, CACenter);*/
+	imGUI.getMain().setElement(menu_container);
+}
+
+void AddCustomAddressUI(){
+	cc_ui_added = true;
+	level.Execute("has_gui = true;");
+	vec2 menu_size(1000, 50);
+	vec4 background_color(0,0,0,0.5);
+	vec2 connect_button_size(1000, 60);
+	float button_size_offset = 10.0f;
+	int server_name_width = 500;
+	int latency_width = 200;
+	int nr_players_width = 200;
+	vec2 option_size(900, 60);
+	vec2 button_size(1000, 60);
+	float description_width = 200.0f;
+
+	IMContainer menu_container(menu_size.x, menu_size.y);
+	menu_container.setAlignment(CACenter, CATop);
+	IMDivider menu_divider("menu_divider", DOVertical);
+	menu_container.setElement(menu_divider);
+
+	menu_divider.appendSpacer(10);
+
+	//Custom address titlebar
+	IMContainer custom_address_container(connect_button_size.x, connect_button_size.y);
+	menu_divider.append(custom_address_container);
+	IMDivider custom_address_divider("custom_address_divider", DOHorizontal);
+	custom_address_divider.setZOrdering(4);
+	custom_address_container.setElement(custom_address_divider);
+	IMText pick_server("Pick address and port", client_connect_font);
+	custom_address_divider.append(pick_server);
+	//Title background
+	IMImage custom_address_background(brushstroke_background);
+	custom_address_background.setZOrdering(2);
+	custom_address_background.setClip(false);
+	custom_address_background.setSize(vec2(500, 60));
+	custom_address_background.setAlpha(0.85f);
+	custom_address_container.addFloatingElement(custom_address_background, "custom_address_background", vec2(custom_address_container.getSizeX() / 2.0f - custom_address_background.getSizeX() / 2.0f,0));
+
+	{
+		//address input field.
+		IMContainer address_container(option_size.x, option_size.y);
+		IMDivider address_divider("address_divider", DOHorizontal);
+		IMContainer address_parent_container(button_size.x / 2.0f, button_size.y);
+		address_parent_container.sendMouseOverToChildren(true);
+		address_parent_container.sendMouseDownToChildren(true);
+		IMDivider address_parent("address_parent", DOHorizontal);
+		address_parent_container.setElement(address_parent);
+		address_container.setElement(address_divider);
+		address_parent_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("activate_address_field"), "");
+
+		IMContainer description_container(description_width, option_size.y);
+		IMText description_label("Address: ", client_connect_font);
+		description_container.setElement(description_label);
+		description_label.setZOrdering(3);
+		address_divider.append(description_container);
+
+		address_divider.appendSpacer(25);
+
+		IMText address_label(address, client_connect_font);
+		address_label.addMouseOverBehavior(mouseover_fontcolor, "");
+		address_label.setZOrdering(3);
+		address_parent.append(address_label);
+		address_divider.append(address_parent_container);
+
+		IMImage address_background(white_background);
+		address_background.setZOrdering(0);
+		address_background.setSize(500 - button_size_offset);
+		address_background.setColor(vec4(0,0,0,0.75));
+		address_parent_container.addFloatingElement(address_background, "address_background", vec2(button_size_offset / 2.0f));
+
+		address_field.SetInputField(@address_label, @address_parent, "address");
+		menu_divider.append(address_container);
+	}
+
+	{
+		//port input field.
+		IMContainer port_container(option_size.x, option_size.y);
+		IMDivider port_divider("port_divider", DOHorizontal);
+		IMContainer port_parent_container(button_size.x / 2.0f, button_size.y);
+		port_parent_container.sendMouseOverToChildren(true);
+		port_parent_container.sendMouseDownToChildren(true);
+		IMDivider port_parent("port_parent", DOHorizontal);
+		port_parent_container.setElement(port_parent);
+		port_container.setElement(port_divider);
+		port_parent_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("activate_port_field"), "");
+
+		IMContainer description_container(description_width, option_size.y);
+		IMText description_label("Port: ", client_connect_font);
+		description_container.setElement(description_label);
+		description_label.setZOrdering(3);
+		port_divider.append(description_container);
+
+		port_divider.appendSpacer(25);
+
+		IMText port_label(port, client_connect_font);
+		port_label.addMouseOverBehavior(mouseover_fontcolor, "");
+		port_label.setZOrdering(3);
+		port_parent.append(port_label);
+		port_divider.append(port_parent_container);
+
+		IMImage port_background(white_background);
+		port_background.setZOrdering(0);
+		port_background.setSize(500 - button_size_offset);
+		port_background.setColor(vec4(0,0,0,0.75));
+		port_parent_container.addFloatingElement(port_background, "port_background", vec2(button_size_offset / 2.0f));
+
+		port_field.SetInputField(@port_label, @port_parent, "port");
+		menu_divider.append(port_container);
+	}
+
+	menu_divider.appendSpacer(20);
+	//The errors are put in this divider
+	@error_divider = IMDivider("error_divider", DOVertical);
+	menu_divider.append(error_divider);
+
+	{
+		menu_divider.appendSpacer(20);
+
+		//The button container at the bottom of the UI.
+		IMContainer button_container(connect_button_size.x, connect_button_size.y);
+		button_container.setAlignment(CALeft, CACenter);
+		IMDivider button_divider("button_divider", DOHorizontal);
+		button_container.setElement(button_divider);
+		menu_divider.append(button_container);
+
+		{
+			//The previous button
+			IMContainer previous_button_container(200, connect_button_size.y);
+			previous_button_container.sendMouseOverToChildren(true);
+			previous_button_container.sendMouseDownToChildren(true);
+			previous_button_container.setAlignment(CACenter, CACenter);
+			IMDivider previous_button_divider("previous_button_divider", DOHorizontal);
+			previous_button_divider.setZOrdering(4);
+			previous_button_container.setElement(previous_button_divider);
+			IMText previous_button("Previous", client_connect_font);
+			previous_button.addMouseOverBehavior(mouseover_fontcolor, "");
+			previous_button_divider.append(previous_button);
+
+			IMImage previous_button_background(white_background);
+			previous_button_background.setZOrdering(0);
+			previous_button_background.setSize(vec2(200 - button_size_offset, connect_button_size.y - button_size_offset));
+			previous_button_background.setColor(vec4(0,0,0,0.75));
+			previous_button_container.addFloatingElement(previous_button_background, "previous_button_background", vec2(button_size_offset / 2.0f));
+
+			previous_button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("previous_ui"), "");
+			button_divider.append(previous_button_container);
+		}
+		button_divider.appendSpacer(connect_button_size.x - (200 * 2.0f));
+		{
+			//The next button
+			IMContainer next_button_container(200, connect_button_size.y);
+			next_button_container.sendMouseOverToChildren(true);
+			next_button_container.sendMouseDownToChildren(true);
+			next_button_container.setAlignment(CACenter, CACenter);
+			IMDivider next_button_divider("next_button_divider", DOHorizontal);
+			next_button_divider.setZOrdering(4);
+			next_button_container.setElement(next_button_divider);
+			IMText next_button("Next", client_connect_font);
+			next_button.addMouseOverBehavior(mouseover_fontcolor, "");
+			next_button_divider.append(next_button);
+
+			IMImage next_button_background(white_background);
+			next_button_background.setZOrdering(0);
+			next_button_background.setSize(vec2(200 - button_size_offset, connect_button_size.y - button_size_offset));
+			next_button_background.setColor(vec4(0,0,0,0.75));
+			next_button_container.addFloatingElement(next_button_background, "next_button_background", vec2(button_size_offset / 2.0f));
+
+			next_button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("check_custom_address"), "");
+			button_divider.append(next_button_container);
+		}
+	}
+
+	//The main background
+	IMImage background(white_background);
+	background.setColor(background_color);
+	background.setSize(vec2(menu_size.x, 1000));
+	menu_container.addFloatingElement(background, "background", vec2(0));
+	imGUI.getMain().setSize(vec2(2560, 1000));
 	imGUI.getMain().setElement(menu_container);
 }
 
@@ -742,16 +956,16 @@ void AddLevelListUI(){
 	float button_size_offset = 10.0f;
 	int level_name_width = 500;
 	int nr_players_width = 200;
-	
+
 	server_retriever.GetLevelList();
-	
+
 	IMContainer menu_container(menu_size.x, menu_size.y);
 	menu_container.setAlignment(CACenter, CATop);
 	IMDivider menu_divider("menu_divider", DOVertical);
 	menu_container.setElement(menu_divider);
-	
+
 	menu_divider.appendSpacer(10);
-	
+
 	//Pick a level titlebar
 	IMContainer pick_level_container(connect_button_size.x, connect_button_size.y);
 	menu_divider.append(pick_level_container);
@@ -767,26 +981,26 @@ void AddLevelListUI(){
 	pick_level_background.setSize(vec2(500, 60));
 	pick_level_background.setAlpha(0.85f);
 	pick_level_container.addFloatingElement(pick_level_background, "pick_level_background", vec2(pick_level_container.getSizeX() / 2.0f - pick_level_background.getSizeX() / 2.0f,0));
-	
+
 	//Server browser titlebar
 	IMContainer titlebar_container(connect_button_size.x, connect_button_size.y);
 	menu_divider.append(titlebar_container);
 	IMDivider titlebar_divider("titlebar_divider", DOHorizontal);
 	titlebar_divider.setZOrdering(3);
 	titlebar_container.setElement(titlebar_divider);
-	
+
 	IMContainer levelname_label_container(level_name_width);
 	IMText levelname_label("Level name", client_connect_font);
 	levelname_label.setZOrdering(3);
 	levelname_label_container.setElement(levelname_label);
 	titlebar_divider.append(levelname_label_container);
-	
+
 	IMContainer nr_players_label_container(nr_players_width);
 	IMText nr_players_label("Nr players", client_connect_font);
 	nr_players_label.setZOrdering(3);
 	nr_players_label_container.setElement(nr_players_label);
 	titlebar_divider.append(nr_players_label_container);
-	
+
 	bool server_includes_this_level = false;
 	for(uint i = 0; i < current_server.levels.size(); i++){
 		if(current_server.levels[i].level_path == level_path){
@@ -799,14 +1013,14 @@ void AddLevelListUI(){
 		button_container.sendMouseOverToChildren(true);
 		IMDivider button_divider("button_divider", DOHorizontal);
 		button_container.setElement(button_divider);
-		
+
 		IMMessage level_chosen("level_chosen");
 		level_chosen.addString(level_name);
 		level_chosen.addString(level_path);
-		
+
 		button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick(level_chosen), "");
 		menu_divider.append(button_container);
-		
+
 		//The level name
 		IMContainer levelname_container(level_name_width);
 		IMText level_name_label("Current level: " + level_name, client_connect_font_small);
@@ -814,7 +1028,7 @@ void AddLevelListUI(){
 		level_name_label.addMouseOverBehavior(mouseover_fontcolor, "");
 		levelname_container.setElement(level_name_label);
 		button_divider.append(levelname_container);
-		
+
 		//The number of players
 		IMContainer nr_players_container(nr_players_width);
 		IMText nr_players("0", client_connect_font_small);
@@ -822,28 +1036,28 @@ void AddLevelListUI(){
 		nr_players.addMouseOverBehavior(mouseover_fontcolor, "");
 		nr_players_container.setElement(nr_players);
 		button_divider.append(nr_players_container);
-		
+
 		IMImage button_background(white_background);
 		button_background.setZOrdering(0);
 		button_background.setSize(connect_button_size - button_size_offset);
 		button_background.setColor(vec4(0,0,0,0.75));
 		button_container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
 	}
-	
+
 	{
 		for(uint i = 0; i < current_server.levels.size(); i++){
 			IMContainer button_container(connect_button_size.x, connect_button_size.y);
 			button_container.sendMouseOverToChildren(true);
 			IMDivider button_divider("button_divider", DOHorizontal);
 			button_container.setElement(button_divider);
-			
+
 			IMMessage level_chosen("level_chosen");
 			level_chosen.addString(current_server.levels[i].level_name);
 			level_chosen.addString(current_server.levels[i].level_path);
-			
+
 			button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick(level_chosen), "");
 			menu_divider.append(button_container);
-			
+
 			//The level name
 			IMContainer levelname_container(level_name_width);
 			IMText level_name_label("", client_connect_font_small);
@@ -856,7 +1070,7 @@ void AddLevelListUI(){
 			level_name_label.addMouseOverBehavior(mouseover_fontcolor, "");
 			levelname_container.setElement(level_name_label);
 			button_divider.append(levelname_container);
-			
+
 			//The number of players
 			IMContainer nr_players_container(nr_players_width);
 			IMText nr_players(current_server.levels[i].nr_players + "", client_connect_font_small);
@@ -864,7 +1078,7 @@ void AddLevelListUI(){
 			nr_players.addMouseOverBehavior(mouseover_fontcolor, "");
 			nr_players_container.setElement(nr_players);
 			button_divider.append(nr_players_container);
-			
+
 			IMImage button_background(white_background);
 			button_background.setZOrdering(0);
 			button_background.setSize(connect_button_size - button_size_offset);
@@ -872,30 +1086,39 @@ void AddLevelListUI(){
 			button_container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
 		}
 	}
-	
+
+	menu_divider.appendSpacer(20);
+
+	//The button container at the bottom of the UI.
+	IMContainer button_container(connect_button_size.x, connect_button_size.y);
+	button_container.setAlignment(CALeft, CACenter);
+	IMDivider button_divider("button_divider", DOHorizontal);
+	button_container.setElement(button_divider);
+	menu_divider.append(button_container);
+
 	{
-		menu_divider.appendSpacer(10);
 		//The previous button
-		IMContainer button_container(connect_button_size.x, connect_button_size.y);
-		button_container.setAlignment(CALeft, CACenter);
-		IMDivider button_divider("button_divider", DOHorizontal);
-		button_divider.setZOrdering(4);
-		button_container.setElement(button_divider);
-		button_divider.appendSpacer(50);
-		IMText button("Previous", client_connect_font);
-		button.addMouseOverBehavior(mouseover_fontcolor, "");
-		button_divider.append(button);
-		
-		IMImage button_background(white_background);
-		button_background.setZOrdering(0);
-		button_background.setSize(vec2(200, connect_button_size.y - button_size_offset));
-		button_background.setColor(vec4(0,0,0,0.75));
-		button_container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
-		
-		button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("previous_ui"), "");
-		menu_divider.append(button_container);
+		IMContainer previous_button_container(200, connect_button_size.y);
+		previous_button_container.sendMouseOverToChildren(true);
+		previous_button_container.sendMouseDownToChildren(true);
+		previous_button_container.setAlignment(CACenter, CACenter);
+		IMDivider previous_button_divider("previous_button_divider", DOHorizontal);
+		previous_button_divider.setZOrdering(4);
+		previous_button_container.setElement(previous_button_divider);
+		IMText previous_button("Previous", client_connect_font);
+		previous_button.addMouseOverBehavior(mouseover_fontcolor, "");
+		previous_button_divider.append(previous_button);
+
+		IMImage previous_button_background(white_background);
+		previous_button_background.setZOrdering(0);
+		previous_button_background.setSize(vec2(200 - button_size_offset, connect_button_size.y - button_size_offset));
+		previous_button_background.setColor(vec4(0,0,0,0.75));
+		previous_button_container.addFloatingElement(previous_button_background, "previous_button_background", vec2(button_size_offset / 2.0f));
+
+		previous_button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("previous_ui"), "");
+		button_divider.append(previous_button_container);
 	}
-	
+
 	//The errors are put in this divider
 	@error_divider = IMDivider("error_divider", DOVertical);
 	menu_divider.append(error_divider);
@@ -919,16 +1142,16 @@ void AddPlayerListUI(){
 	float button_size_offset = 10.0f;
 	int player_name_width = 500;
 	int player_character_width = 200;
-	
+
 	server_retriever.GetPlayerList();
-	
+
 	IMContainer menu_container(menu_size.x, menu_size.y);
 	menu_container.setAlignment(CACenter, CATop);
 	IMDivider menu_divider("menu_divider", DOVertical);
 	menu_container.setElement(menu_divider);
-	
+
 	menu_divider.appendSpacer(10);
-	
+
 	{
 		//Choose a username and character
 		IMContainer container(connect_button_size.x, connect_button_size.y);
@@ -953,35 +1176,35 @@ void AddPlayerListUI(){
 	IMDivider titlebar_divider("titlebar_divider", DOHorizontal);
 	titlebar_divider.setZOrdering(3);
 	titlebar_container.setElement(titlebar_divider);
-	
+
 	IMContainer name_label_container(player_name_width);
 	IMText name_label("Player name", client_connect_font);
 	name_label.setZOrdering(3);
 	name_label_container.setElement(name_label);
 	titlebar_divider.append(name_label_container);
-	
+
 	IMContainer character_label_container(player_character_width);
 	IMText character_label("Player character", client_connect_font);
 	character_label.setZOrdering(3);
 	character_label_container.setElement(character_label);
 	titlebar_divider.append(character_label_container);
-	
+
 	menu_divider.appendSpacer(10);
-	
+
 	for(uint i = 0; i < current_server.players.size(); i++){
 		IMContainer container(connect_button_size.x, connect_button_size.y);
 		IMDivider button_divider("button_divider", DOHorizontal);
 		container.setElement(button_divider);
-	
+
 		menu_divider.append(container);
-		
+
 		//The player username
 		IMContainer playername_container(player_name_width);
 		IMText player_name_label(current_server.players[i].player_username, client_connect_font_small);
 		player_name_label.setZOrdering(4);
 		playername_container.setElement(player_name_label);
 		button_divider.append(playername_container);
-		
+
 		//The player character
 		IMContainer player_character_container(player_character_width);
 		int character_name_index = character_options.find(current_server.players[i].player_character);
@@ -994,27 +1217,27 @@ void AddPlayerListUI(){
 		player_character_label.setZOrdering(4);
 		player_character_container.setElement(player_character_label);
 		button_divider.append(player_character_container);
-		
+
 		IMImage button_background(white_background);
 		button_background.setZOrdering(0);
 		button_background.setSize(connect_button_size - button_size_offset);
 		button_background.setColor(vec4(0,0,0,0.75));
 		container.addFloatingElement(button_background, "button_background", vec2(button_size_offset / 2.0f));
 	}
-	
-	menu_divider.appendSpacer(10);
-	
+
+	menu_divider.appendSpacer(20);
+
 	if(connected_to_server){
 		//Disconnect button
 		IMContainer button_container(connect_button_size.x, connect_button_size.y);
 		button_container.addLeftMouseClickBehavior(IMFixedMessageOnClick("disconnect"), "");
 		menu_divider.append(button_container);
-		
+
 		IMText connect_text("Disconnect from server.", client_connect_font);
 		connect_text.addMouseOverBehavior(mouseover_fontcolor, "");
 		connect_text.setZOrdering(3);
 		button_container.setElement(connect_text);
-		
+
 		IMImage button_background(white_background);
 		button_background.setZOrdering(0);
 		button_background.setSize(connect_button_size - button_size_offset);
@@ -1024,7 +1247,7 @@ void AddPlayerListUI(){
 	//The errors are put in this divider
 	@error_divider = IMDivider("error_divider", DOVertical);
 	menu_divider.append(error_divider);
-	
+
 	//The main background
 	IMImage background(white_background);
 	background.setColor(background_color);
@@ -1037,8 +1260,8 @@ void AddPlayerListUI(){
 
 void PostInit(){
     //Workaround for the controller system out of bounds exception. TODO remove in later beta.
-    level.Execute(  "IMContainer container(200, 200); "+ 
-                    "AddControllerItem(container, IMMessage(\"nothing\"));");
+    // level.Execute(  "IMContainer container(200, 200); "+
+    //                 "AddControllerItem(container, IMMessage(\"nothing\"));");
 	player_id = GetPlayerCharacterID();
 	bool auto_connected = HandleConnectOnInit();
 	if(!auto_connected){
@@ -1051,10 +1274,12 @@ void Update(int paused) {
 	server_retriever.Update();
 	UpdateConnectedIcon();
 	username_field.Update();
-    if(!post_init_run){
+	address_field.Update();
+	port_field.Update();
+	if(!post_init_run){
 		PostInit();
-        post_init_run = true;
-    }
+		post_init_run = true;
+	}
 	if(player_id == -1){
 		player_id = GetPlayerCharacterID();
 		return;
@@ -1079,13 +1304,18 @@ void Update(int paused) {
 	// process any messages produced from the update
     while( imGUI.getMessageQueueSize() > 0 ) {
         IMMessage@ message = imGUI.getNextMessage();
-		/*Log( info, "Got processMessage " + message.name );*/
+		Log( info, "Got processMessage " + message.name );
 		if( message.name == "" ){return;}
 		else if( message.name == "server_chosen" ){
 			int index = message.getInt(0);
 			@current_server = server_retriever.online_servers[index];
 			NextUIState();
 	        RefreshUI();
+		}
+		else if( message.name == "check_custom_address" ){
+			ServerConnectionInfo custom_address(address, parseInt(port));
+			@current_server = custom_address;
+			server_retriever.checking_custom_address = true;
 		}
 		else if( message.name == "level_chosen" ){
 			HandleLevelChosen(message.getString(0), message.getString(1));
@@ -1099,13 +1329,19 @@ void Update(int paused) {
 			RefreshUI();
 		}
 		else if( message.name == "disconnect" ){
-	        DisconnectFromServer();
+			DisconnectFromServer();
 			RemoveUI();
 		}
-		else if( message.name == "activate_search" ){
+		else if( message.name == "activate_username_field" ){
 			username_field.Activate();
 			dropdown.SetNewValue(character);
 			dropdown.Deactivate();
+		}
+		else if( message.name == "activate_address_field" ){
+			address_field.Activate();
+		}
+		else if( message.name == "activate_port_field" ){
+			port_field.Activate();
 		}
 		else if( message.name == "activate_dropdown" ){
 			if(username_field.active){
@@ -1123,6 +1359,23 @@ void Update(int paused) {
 			character = message.getString(0);
 			dropdown.SetNewValue(character);
 			dropdown.Deactivate();
+		}
+		else if( message.name == "custom_address" ){
+			RemoveUI();
+			currentUIState++;
+			AddCustomAddressUI();
+		}
+		else if( message.name == "update_value" ){
+			string value_name = message.getString(0);
+			if(value_name == "username"){
+				username = message.getString(1);
+			}
+			else if(value_name == "address"){
+				address = message.getString(1);
+			}
+			else if(value_name == "port"){
+				port = message.getString(1);
+			}
 		}
 	}
 	SeparateMessages();
@@ -1239,7 +1492,7 @@ void PreConnectedKeyChecks(){
 
 void KeyChecks(){
 	int controller_id = ReadCharacterID(player_id).controller_id;
-	
+
 	if(chat.chat_input_shown){
 		return;
 	}
@@ -1293,6 +1546,7 @@ void DisconnectFromServer(){
 	retriever_socket = SOCKET_ID_INVALID;
 	connected_to_server = false;
 	currentUIState = UsernameUI;
+	chat.ClearChat();
 	RemoveAllExceptPlayer();
 }
 
@@ -1420,7 +1674,7 @@ float toFloat(array<uint8> bytes){
         s |= (bytes[2] << 8) & 0xFFFF;
         s |= (bytes[1] << 16) & 0xFFFFFF;
         s |= (bytes[0] << 24);
-	
+
 	return fpFromIEEE(s);
 }
 
@@ -1431,19 +1685,19 @@ float toFloat(array<uint8> bytes){
 }*/
 
 void SendPlayerUpdate(){
-	
+
 	array<uint8> message;
 	message.insertLast(UpdateGame);
 	MovementObject@ player = ReadCharacterID(player_id);
 	vec3 position = player.position;
-	
+
 	addToByteArray(player.position.x, @message);
 	addToByteArray(player.position.y, @message);
 	addToByteArray(player.position.z, @message);
 	vec3 player_dir = GetPlayerTargetVelocity();
 	addToByteArray(player_dir.x, @message);
 	addToByteArray(player_dir.z, @message);
-	
+
 	addToByteArray(MPWantsToCrouch, @message);
 	addToByteArray(MPWantsToJump, @message);
 	addToByteArray(MPWantsToAttack, @message);
@@ -1453,7 +1707,7 @@ void SendPlayerUpdate(){
 	addToByteArray(MPWantsToRoll, @message);
 	addToByteArray(MPWantsToJumpOffWall, @message);
 	addToByteArray(MPActiveBlock, @message);
-	
+
 	addToByteArray(blood_damage, @message);
 	addToByteArray(blood_health, @message);
 	addToByteArray(block_health, @message);
@@ -1461,7 +1715,7 @@ void SendPlayerUpdate(){
 	addToByteArray(permanent_health, @message);
 	addToByteArray(knocked_out, @message);
 	addToByteArray(blood_amount, @message);
-	
+
 	addToByteArray(recovery_time, @message);
 	addToByteArray(roll_recovery_time, @message);
 	addToByteArray(ragdoll_type, @message);
@@ -1474,7 +1728,7 @@ void SendPlayerUpdate(){
 	MPActiveBlock = false;
 
 	SendData(message);
-	
+
 }
 
 vec3 GetPlayerTargetVelocity() {
@@ -1579,7 +1833,7 @@ void RemoveAllExceptPlayer() {
 	}
     remote_players.resize(0);
 	MovementObject@ player = ReadCharacterID(player_id);
-	player.Execute("situation.clear();");	
+	player.Execute("situation.clear();");
 }
 
 int GetPlayerCharacterID() {
@@ -1618,19 +1872,24 @@ class Chat{
 	IMPulseAlpha pulse_cursor(1.0f, 0.0f, 2.0f);
 	void Initialize(){
 		IMDivider whole_chat("whole_chat", DOVertical);
-		
+
 		@chat_divider = IMDivider("chat_divider", DOVertical);
 		@chat_input_divider = IMDivider("chat_input_divider", DOVertical);
-		
+
 		whole_chat.append(chat_divider);
 		whole_chat.append(chat_input_divider);
-		
+
 		whole_chat.setAlignment(CACenter, CATop);
 		/*chat_divider.setAlignment(CACenter, CATop);*/
 		imGUI.getFooter().setAlignment(CACenter, CATop);
-		
+
 		//chat_divider.showBorder();
 		imGUI.getFooter().setElement(whole_chat);
+	}
+	void ClearChat(){
+		chat_divider.clear();
+		chat_messages.resize(0);
+		DrawChat();
 	}
 	void AddMessage(string message_, string source_, bool notif_){
 		chat_divider.clear();
@@ -1658,26 +1917,26 @@ class Chat{
 		float background_size_offset = 10.0f;
 		float source_width = 200.0f;
 		float move_distance = 0;
-		
+
 		if(index == (chat_messages.size() - 1) ){
 			move_distance = num_chat_messages * chat_height;
 		}else if((chat_messages.size() - 1) == num_chat_messages){
 			move_distance = chat_height;
 		}
-		
+
 		IMDivider whole_divider("whole_divider", DOHorizontal);
 		whole_divider.addUpdateBehavior(IMMoveIn ( move_in_time, vec2(0, move_distance), inSineTween ), "");
-		
+
 		IMDivider message_divider("message_divider", DOHorizontal);
 		IMContainer message_container(chat_width, chat_height);
 		/*message_container.showBorder();*/
 		message_container.setAlignment(CALeft, CACenter);
 		IMImage background(white_background);
-		
+
 		FontSetup username_font = main_font;
 		username_font.color = chat_message.background_color;
 		username_font.color.a = 1.0f;
-		
+
 		message_divider.appendSpacer(left_offset);
 		message_divider.setZOrdering(2);
 		background.setZOrdering(0);
@@ -1685,7 +1944,7 @@ class Chat{
 		background.setBorderSize(1.0f);
 		background.setColor(chat_message.background_color);
 		message_container.addFloatingElement(background, "background", vec2(0.0f));
-		
+
 		message_container.setElement(message_divider);
 		if(chat_message.notif){
 			IMText message_text(chat_message.message, main_font);
@@ -1694,12 +1953,12 @@ class Chat{
 		}else{
 			IMDivider source_divider("source_divider", DOHorizontal);
 			IMContainer source_container(source_width, chat_height);
-			
+
 			source_container.setAlignment(CALeft, CACenter);
 			source_container.setElement(source_divider);
 			background.setSize(vec2(chat_width - source_width - background_size_offset, chat_height - background_size_offset));
 			message_container.setSizeX(chat_width - source_width);
-			
+
 			IMText label_source(chat_message.source, username_font);
 			IMText label_text(chat_message.message, main_font);
 			whole_divider.append(source_container);
@@ -1714,20 +1973,20 @@ class Chat{
 		player.velocity = vec3(0);
 		player.Execute("SetState(_ground_state);");
 		player.Execute("this_mo.SetAnimation(\"Data/Animations/r_actionidle.anm\", 20.0f);");
-		
+
 		@chat_query_divider = IMDivider("new_chat_divider", DOHorizontal);
 		IMContainer new_chat_container(chat_width, chat_height);
 		IMImage background(white_background);
-		
+
 		chat_query_divider.setZOrdering(2);
 		background.setZOrdering(0);
-		
+
 		background.setSize(vec2(chat_width, chat_height));
 		background.setColor(vec4(0,0,0,0.55));
 		new_chat_container.addFloatingElement(background, "background", vec2(0));
 		new_chat_container.addUpdateBehavior(IMMoveIn ( move_in_time, vec2(0, chat_height), inSineTween ), "");
 		new_chat_container.setElement(chat_query_divider);
-		
+
 		FontSetup input_font = main_font;
 		input_font.color = vec4(1);
 		input_font.shadowed = true;
@@ -1735,7 +1994,7 @@ class Chat{
 		IMText cursor("_", input_font);
 		chat_message_label.setZOrdering(2);
 		cursor.setZOrdering(2);
-		
+
 		cursor.addUpdateBehavior(pulse_cursor, "");
 		chat_query_divider.append(chat_message_label);
 		chat_query_divider.append(cursor);
@@ -1753,7 +2012,7 @@ class Chat{
 		FontSetup input_font = main_font;
 		input_font.color = vec4(1);
 		input_font.shadowed = true;
-		
+
 		chat_query_divider.clear();
 		@chat_message_label = IMText("", input_font);
 		chat_query_divider.append(chat_message_label);
@@ -1782,18 +2041,18 @@ class Chat{
 						initial_sequence_id = inputs[inputs.size()-1].s_id;
 						uint max_query_length = 60;
 						bool get_upper_case = false;
-						
+
 						/*Print("keycode " + keycode + "\n");*/
-						
+
 						if(GetInputDown(ReadCharacterID(player_id).controller_id, "shift")){
 							get_upper_case =true;
 						}
-						
+
 						array<int> ignore_keycodes = {27};
 						if(ignore_keycodes.find(keycode) != -1 || keycode > 500){
 							return;
 						}
-						
+
 						//Backspace
 						if(keycode == 8){
 							//Check if there are enough chars to delete the last one.
@@ -1827,7 +2086,7 @@ class Chat{
 							RemoveChatInput();
 							return;
 						}
-						
+
 						if(get_upper_case){
 							keycode = ToUpperCase(keycode);
 						}
