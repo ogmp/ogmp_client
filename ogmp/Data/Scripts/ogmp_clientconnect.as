@@ -940,6 +940,7 @@ void AddCustomAddressUI(){
 
 	//The main background
 	IMImage background(white_background);
+	background.addLeftMouseClickBehavior(IMFixedMessageOnClick("close_all"), "");
 	background.setColor(background_color);
 	background.setSize(vec2(menu_size.x, 1000));
 	menu_container.addFloatingElement(background, "background", vec2(0));
@@ -1259,9 +1260,6 @@ void AddPlayerListUI(){
 }
 
 void PostInit(){
-    //Workaround for the controller system out of bounds exception. TODO remove in later beta.
-    // level.Execute(  "IMContainer container(200, 200); "+
-    //                 "AddControllerItem(container, IMMessage(\"nothing\"));");
 	player_id = GetPlayerCharacterID();
 	bool auto_connected = HandleConnectOnInit();
 	if(!auto_connected){
@@ -1338,9 +1336,15 @@ void Update(int paused) {
 			dropdown.Deactivate();
 		}
 		else if( message.name == "activate_address_field" ){
+			if(port_field.active){
+				port_field.Deactivate();
+			}
 			address_field.Activate();
 		}
 		else if( message.name == "activate_port_field" ){
+			if(address_field.active){
+				address_field.Deactivate();
+			}
 			port_field.Activate();
 		}
 		else if( message.name == "activate_dropdown" ){
@@ -1352,6 +1356,12 @@ void Update(int paused) {
 		else if( message.name == "close_all" ){
 			if(username_field.active){
 				username_field.Deactivate();
+			}
+			if(address_field.active){
+				address_field.Deactivate();
+			}
+			if(port_field.active){
+				port_field.Deactivate();
 			}
 			dropdown.Deactivate();
 		}
