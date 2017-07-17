@@ -1489,14 +1489,14 @@ void SetWindowDimensions(int w, int h)
 }
 
 void PreConnectedKeyChecks(){
-    if(GetInputPressed(ReadCharacterID(player_id).controller_id, "f12") && !trying_to_connect){
-		if(cc_ui_added){
-			RemoveUI();
-			server_retriever.server_index = 0;
-			server_retriever.online_servers.resize(0);
-		}else{
-			AddUI();
-		}
+    if(GetInputPressed(ReadCharacterID(player_id).controller_id, "p") && !trying_to_connect){
+			if(cc_ui_added){
+				RemoveUI();
+				server_retriever.server_index = 0;
+				server_retriever.online_servers.resize(0);
+			}else{
+				AddUI();
+			}
     }
 }
 
@@ -1516,14 +1516,14 @@ void KeyChecks(){
 		if((permanent_health > 0) && (temp_health > 0)) {
 			SendLoadPosition();
 		}
-	}else if(GetInputPressed(controller_id, "f12")){
+	}else if(GetInputPressed(controller_id, "p")){
 		if(cc_ui_added){
-            server_retriever.ResetGetters();
+			server_retriever.ResetGetters();
 			RemoveUI();
 		}else{
 			AddUI();
 		}
-    }
+  }
 }
 
 void ConnectToServer(){
