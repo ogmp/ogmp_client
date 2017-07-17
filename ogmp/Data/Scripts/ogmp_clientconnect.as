@@ -311,6 +311,8 @@ void ProcessIncomingMessage(array<uint8>@ data){
 	}
 	else if(message_type == LoadPosition){
 		MovementObject@ player = ReadCharacterID(player_id);
+		PlaySound("Data/Sounds/ambient/amb_canyon_hawk_1.wav");
+		player.velocity = vec3(0);
 		player.position.x = GetFloat(data, data_index);
 		player.position.y = GetFloat(data, data_index);
 		player.position.z = GetFloat(data, data_index);
