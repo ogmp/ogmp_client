@@ -170,6 +170,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 	else if (message_type == UpdateGame){
 	}
 	else if (message_type == UpdateSelf){
+		Print("Received updateself\n");
 		MovementObject@ player = ReadCharacterID(player_id);
 
 		float blooddamage = GetFloat(data, data_index);
@@ -248,7 +249,6 @@ void ProcessIncomingMessage(array<uint8>@ data){
 			remote_player.Execute("MPWantsToDrop = " + remote_drop + ";");
 			remote_player.Execute("MPWantsToRoll = " + remote_roll + ";");
 			remote_player.Execute("MPWantsToJumpOffWall = " + remote_jumpoffwall + ";");
-			remote_player.Execute("MPActiveBlock = " + remote_activateblock + ";");
 			remote_player.Execute("MPActiveBlock = " + remote_activateblock + ";");
 
 			remote_player.Execute("blood_damage = " + remote_blooddamage + ";");
@@ -1701,7 +1701,6 @@ void SendPlayerUpdate(){
 	MPWantsToRoll = false;
 	MPWantsToJumpOffWall = false;
 	MPActiveBlock = false;
-
 	SendData(message);
 }
 
@@ -1765,6 +1764,7 @@ class PlayerVariables{
 
 class PlayerVariable{
 	uint8 variable_type;
+	bool initial_update = true;
 	PlayerVariable(){}
 	void AddToUpdateMessage(array<uint8>@ message){}
 	void GetValue(){}
@@ -1777,15 +1777,16 @@ class PlayerVariableInput : PlayerVariable{
 	PlayerVariableInput(int _controller_id, string _key_name, uint8 _variable_type){
 		controller_id = _controller_id;
 		key_name = _key_name;
-		current_value = GetInputDown(controller_id, key_name);
 		variable_type = _variable_type;
 	}
 	void AddToUpdateMessage(array<uint8>@ message){
 		bool source_value = GetInputDown(controller_id, key_name);
-		if(source_value != current_value){
+		if(source_value != current_value || initial_update){
+			initial_update = false;
 			current_value = source_value;
 			addToByteArray(variable_type, message);
 			addToByteArray(current_value, message);
+			Print("Variable " + key_name + " value " + current_value + "\n");
 		}
 	}
 }
@@ -1800,15 +1801,16 @@ class PlayerVariableFloatVar : PlayerVariable{
 		var_name = _var_name;
 		//TODO this handle on the player character might not be the best solution, to be tested.
 		@player = ReadCharacterID(player_id);
-		current_value = player.GetFloatVar(var_name);
 		variable_type = _variable_type;
 	}
 	void AddToUpdateMessage(array<uint8>@ message){
 		float source_value = player.GetFloatVar(var_name);
-		if(source_value != current_value){
+		if(source_value != current_value || initial_update){
+			initial_update = false;
 			current_value = source_value;
 			addToByteArray(variable_type, message);
 			addToByteArray(current_value, message);
+			Print("Variable " + var_name + " value " + current_value + "\n");
 		}
 	}
 }
@@ -1823,15 +1825,16 @@ class PlayerVariableIntVar : PlayerVariable{
 		var_name = _var_name;
 		//TODO this handle on the player character might not be the best solution, to be tested.
 		@player = ReadCharacterID(player_id);
-		current_value = player.GetIntVar(var_name);
 		variable_type = _variable_type;
 	}
 	void AddToUpdateMessage(array<uint8>@ message){
 		int source_value = player.GetIntVar(var_name);
-		if(source_value != current_value){
+		if(source_value != current_value || initial_update){
+			initial_update = false;
 			current_value = source_value;
 			addToByteArray(variable_type, message);
 			addToByteArray(current_value, message);
+			Print("Variable " + var_name + " value " + current_value + "\n");
 		}
 	}
 }
@@ -1846,15 +1849,16 @@ class PlayerVariableBoolVar : PlayerVariable{
 		var_name = _var_name;
 		//TODO this handle on the player character might not be the best solution, to be tested.
 		@player = ReadCharacterID(player_id);
-		current_value = player.GetBoolVar(var_name);
 		variable_type = _variable_type;
 	}
 	void AddToUpdateMessage(array<uint8>@ message){
 		bool source_value = player.GetBoolVar(var_name);
-		if(source_value != current_value){
+		if(source_value != current_value || initial_update){
+			initial_update = false;
 			current_value = source_value;
 			addToByteArray(variable_type, message);
 			addToByteArray(current_value, message);
+			Print("Variable " + var_name + " value " + current_value + "\n");
 		}
 	}
 }
@@ -1867,21 +1871,22 @@ class PlayerVariableDirection : PlayerVariable{
 		//TODO this handle on the player character might not be the best solution, to be tested.
 		@player = ReadCharacterID(player_id);
 		vec3 player_dir = GetPlayerTargetVelocity();
-		dir_x = player_dir.x;
-		dir_z = player_dir.z;
 	}
 	void AddToUpdateMessage(array<uint8>@ message){
 		vec3 player_dir = GetPlayerTargetVelocity();
-		if(dir_x != player_dir.x){
+		if(dir_x != player_dir.x || initial_update){
 			dir_x = player_dir.x;
 			addToByteArray(direction_x, message);
 			addToByteArray(dir_x, message);
+			Print("Variable dirx" + " value " + dir_x + "\n");
 		}
-		if(dir_z != player_dir.z){
+		if(dir_z != player_dir.z || initial_update){
 			dir_z = player_dir.z;
 			addToByteArray(direction_z, message);
 			addToByteArray(dir_z, message);
+			Print("Variable dirz" + " value " + dir_z + "\n");
 		}
+		initial_update = false;
 	}
 }
 
@@ -1893,26 +1898,27 @@ class PlayerVariablePosition : PlayerVariable{
 	PlayerVariablePosition(int _player_id){
 		//TODO this handle on the player character might not be the best solution, to be tested.
 		@player = ReadCharacterID(player_id);
-		pos_x = player.position.x;
-		pos_y = player.position.y;
-		pos_z = player.position.z;
 	}
 	void AddToUpdateMessage(array<uint8>@ message){
-		if(pos_x != player.position.x){
+		if(pos_x != player.position.x || initial_update){
 			pos_x = player.position.x;
 			addToByteArray(position_x, message);
 			addToByteArray(pos_x, message);
+			Print("Variable posx" + " value " + pos_x + "\n");
 		}
-		if(pos_y != player.position.y){
+		if(pos_y != player.position.y || initial_update){
 			pos_y = player.position.y;
 			addToByteArray(position_y, message);
 			addToByteArray(pos_y, message);
+			Print("Variable posy" + " value " + pos_y + "\n");
 		}
-		if(pos_z != player.position.z){
+		if(pos_z != player.position.z || initial_update){
 			pos_z = player.position.z;
 			addToByteArray(position_z, message);
 			addToByteArray(pos_z, message);
+			Print("Variable posz" + " value " + pos_z + "\n");
 		}
+		initial_update = false;
 	}
 }
 
@@ -1942,6 +1948,8 @@ enum PlayerVariableType{
 	direction_x = 22,
 	direction_z = 23
 }
+
+//Add roll jumpoffwall and activeblock
 
 PlayerVariables player_variables;
 void SetupPlayerVariables(){
