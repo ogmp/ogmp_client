@@ -28,8 +28,6 @@ string welcome_message = "";
 string character = "";
 
 int ragdoll_counter = 0;
-float dir_x = 0.0f;
-float dir_z = 0.0f;
 
 bool MPWantsToCrouch = false;
 bool MPWantsToJump = false;
@@ -41,19 +39,6 @@ bool MPWantsToRoll = false;
 bool MPWantsToJumpOffWall = false;
 bool MPActiveBlock = false;
 bool MPIsConnected = false;
-float blood_damage = 0.0f;
-float blood_health = 1.0f;
-float block_health = 1.0f;
-float temp_health = 1.0f;
-float permanent_health = 1.0f;
-int knocked_out = 0;
-float blood_amount = 10.0f;
-float recovery_time = 1.0f;
-float roll_recovery_time = 1.0f;
-int ragdoll_type = 0;
-int blood_delay = 0;
-bool cut_throat = false;
-int state = 0;
 
 bool connected_to_server = false;
 bool post_init_run = false;
@@ -1282,6 +1267,7 @@ void Update(int paused) {
 	}
 	if(player_id == -1){
 		player_id = GetPlayerCharacterID();
+		SetupPlayerVariables();
 		return;
 	}else if(!ObjectExists(player_id)){
         player_id = -1;
@@ -1289,12 +1275,12 @@ void Update(int paused) {
     }
     if(connected_to_server){
 		UpdateTimeCriticalPlayerVariables();
+		update_timer += time_step;
 		if(update_timer > interval){
 			UpdatePlayerVariables();
 	        SendPlayerUpdate();
 			update_timer = 0;
 	    }
-	    update_timer += time_step;
 		KeyChecks();
 		UpdatePlayerUsernameBillboard();
     }else{
@@ -1391,17 +1377,23 @@ void Update(int paused) {
 		}
 	}
 	SeparateMessages();
-	if(GetInputPressed(0, "p")){
-		/*chat.AddMessage("Content" + rand(), "server", true);
-		chat.AddMessage("Content" + rand(), "Person", false);*/
-		/*chat.AddMessage("Content" + rand(), username, false);*/
-		/*ReadServerList();*/
+	if(update_player_vars){
+		x_timer += time_step;
+		if(x_timer > 5.0f){
+			x_timer = 0.0f;
+			UpdatePlayerVariables();
+		}
+	}
+	if(GetInputPressed(0, "i")){
+		update_player_vars = true;
 	}
 	if(connected_to_server){
 		UpdateInput();
 	}
 	imGUI.update();
 }
+float x_timer = 0.0f;
+bool update_player_vars = false;
 
 void UpdatePlayerUsernameBillboard(){
 	MovementObject@ player = ReadCharacterID(player_id);
@@ -1492,13 +1484,13 @@ void SetWindowDimensions(int w, int h)
 
 void PreConnectedKeyChecks(){
     if(GetInputPressed(ReadCharacterID(player_id).controller_id, "p") && !trying_to_connect){
-			if(cc_ui_added){
-				RemoveUI();
-				server_retriever.server_index = 0;
-				server_retriever.online_servers.resize(0);
-			}else{
-				AddUI();
-			}
+		if(cc_ui_added){
+			RemoveUI();
+			server_retriever.server_index = 0;
+			server_retriever.online_servers.resize(0);
+		}else{
+			AddUI();
+		}
     }
 }
 
@@ -1631,6 +1623,10 @@ void addToByteArray(bool value, array<uint8> @data){
 	}
 }
 
+void addToByteArray(uint8 value, array<uint8> @data){
+	data.insertLast(value);
+}
+
 float GetFloat(array<uint8>@ data, int &start_index){
 	array<uint8> b = {data[start_index + 3], data[start_index + 2], data[start_index + 1], data[start_index]};
 	/*array<uint8> b = {data[start_index], data[start_index + 1], data[start_index + 2], data[start_index + 3]};*/
@@ -1697,50 +1693,16 @@ float toFloat(array<uint8> bytes){
 }*/
 
 void SendPlayerUpdate(){
-
 	array<uint8> message;
 	message.insertLast(UpdateGame);
-	MovementObject@ player = ReadCharacterID(player_id);
-	vec3 position = player.position;
 
-	addToByteArray(player.position.x, @message);
-	addToByteArray(player.position.y, @message);
-	addToByteArray(player.position.z, @message);
-	vec3 player_dir = GetPlayerTargetVelocity();
-	addToByteArray(player_dir.x, @message);
-	addToByteArray(player_dir.z, @message);
-
-	addToByteArray(MPWantsToCrouch, @message);
-	addToByteArray(MPWantsToJump, @message);
-	addToByteArray(MPWantsToAttack, @message);
-	addToByteArray(MPWantsToGrab, @message);
-	addToByteArray(MPWantsToItem, @message);
-	addToByteArray(MPWantsToDrop, @message);
-	addToByteArray(MPWantsToRoll, @message);
-	addToByteArray(MPWantsToJumpOffWall, @message);
-	addToByteArray(MPActiveBlock, @message);
-
-	addToByteArray(blood_damage, @message);
-	addToByteArray(blood_health, @message);
-	addToByteArray(block_health, @message);
-	addToByteArray(temp_health, @message);
-	addToByteArray(permanent_health, @message);
-	addToByteArray(knocked_out, @message);
-	addToByteArray(blood_amount, @message);
-
-	addToByteArray(recovery_time, @message);
-	addToByteArray(roll_recovery_time, @message);
-	addToByteArray(ragdoll_type, @message);
-	addToByteArray(blood_delay, @message);
-	addToByteArray(cut_throat, @message);
-	addToByteArray(state, @message);
+	player_variables.AddUpdateMessage(@message);
 
 	MPWantsToRoll = false;
 	MPWantsToJumpOffWall = false;
 	MPActiveBlock = false;
 
 	SendData(message);
-
 }
 
 vec3 GetPlayerTargetVelocity() {
@@ -1786,32 +1748,246 @@ void UpdateTimeCriticalPlayerVariables(){
 	}
 }
 
-void UpdatePlayerVariables(){
-	if(chat.chat_input_shown){
+class PlayerVariables{
+	array<PlayerVariable@> variables;
+	void AddVariable(PlayerVariable var){
+		variables.insertLast(@var);
+	}
+	void AddUpdateMessage(array<uint8>@ message){
+		for(uint i = 0; i < variables.size(); i++){
+			variables[i].AddToUpdateMessage(@message);
+		}
+	}
+	void ClearAll(){
+		variables.resize(0);
+	}
+}
+
+class PlayerVariable{
+	uint8 variable_type;
+	PlayerVariable(){}
+	void AddToUpdateMessage(array<uint8>@ message){}
+	void GetValue(){}
+}
+
+class PlayerVariableInput : PlayerVariable{
+	bool current_value;
+	int controller_id;
+	string key_name;
+	PlayerVariableInput(int _controller_id, string _key_name, uint8 _variable_type){
+		controller_id = _controller_id;
+		key_name = _key_name;
+		current_value = GetInputDown(controller_id, key_name);
+		variable_type = _variable_type;
+	}
+	void AddToUpdateMessage(array<uint8>@ message){
+		bool source_value = GetInputDown(controller_id, key_name);
+		if(source_value != current_value){
+			current_value = source_value;
+			addToByteArray(variable_type, message);
+			addToByteArray(current_value, message);
+		}
+	}
+}
+
+class PlayerVariableFloatVar : PlayerVariable{
+	string var_name;
+	float current_value;
+	int player_id;
+	MovementObject@ player;
+	PlayerVariableFloatVar(int _player_id, string _var_name, uint8 _variable_type){
+		player_id = _player_id;
+		var_name = _var_name;
+		//TODO this handle on the player character might not be the best solution, to be tested.
+		@player = ReadCharacterID(player_id);
+		current_value = player.GetFloatVar(var_name);
+		variable_type = _variable_type;
+	}
+	void AddToUpdateMessage(array<uint8>@ message){
+		float source_value = player.GetFloatVar(var_name);
+		if(source_value != current_value){
+			current_value = source_value;
+			addToByteArray(variable_type, message);
+			addToByteArray(current_value, message);
+		}
+	}
+}
+
+class PlayerVariableIntVar : PlayerVariable{
+	string var_name;
+	int current_value;
+	int player_id;
+	MovementObject@ player;
+	PlayerVariableIntVar(int _player_id, string _var_name, uint8 _variable_type){
+		player_id = _player_id;
+		var_name = _var_name;
+		//TODO this handle on the player character might not be the best solution, to be tested.
+		@player = ReadCharacterID(player_id);
+		current_value = player.GetIntVar(var_name);
+		variable_type = _variable_type;
+	}
+	void AddToUpdateMessage(array<uint8>@ message){
+		int source_value = player.GetIntVar(var_name);
+		if(source_value != current_value){
+			current_value = source_value;
+			addToByteArray(variable_type, message);
+			addToByteArray(current_value, message);
+		}
+	}
+}
+
+class PlayerVariableBoolVar : PlayerVariable{
+	string var_name;
+	bool current_value;
+	int player_id;
+	MovementObject@ player;
+	PlayerVariableBoolVar(int _player_id, string _var_name, uint8 _variable_type){
+		player_id = _player_id;
+		var_name = _var_name;
+		//TODO this handle on the player character might not be the best solution, to be tested.
+		@player = ReadCharacterID(player_id);
+		current_value = player.GetBoolVar(var_name);
+		variable_type = _variable_type;
+	}
+	void AddToUpdateMessage(array<uint8>@ message){
+		bool source_value = player.GetBoolVar(var_name);
+		if(source_value != current_value){
+			current_value = source_value;
+			addToByteArray(variable_type, message);
+			addToByteArray(current_value, message);
+		}
+	}
+}
+
+class PlayerVariableDirection : PlayerVariable{
+	float dir_x;
+	float dir_z;
+	MovementObject@ player;
+	PlayerVariableDirection(int _player_id){
+		//TODO this handle on the player character might not be the best solution, to be tested.
+		@player = ReadCharacterID(player_id);
+		vec3 player_dir = GetPlayerTargetVelocity();
+		dir_x = player_dir.x;
+		dir_z = player_dir.z;
+	}
+	void AddToUpdateMessage(array<uint8>@ message){
+		vec3 player_dir = GetPlayerTargetVelocity();
+		if(dir_x != player_dir.x){
+			dir_x = player_dir.x;
+			addToByteArray(direction_x, message);
+			addToByteArray(dir_x, message);
+		}
+		if(dir_z != player_dir.z){
+			dir_z = player_dir.z;
+			addToByteArray(direction_z, message);
+			addToByteArray(dir_z, message);
+		}
+	}
+}
+
+class PlayerVariablePosition : PlayerVariable{
+	float pos_x;
+	float pos_y;
+	float pos_z;
+	MovementObject@ player;
+	PlayerVariablePosition(int _player_id){
+		//TODO this handle on the player character might not be the best solution, to be tested.
+		@player = ReadCharacterID(player_id);
+		pos_x = player.position.x;
+		pos_y = player.position.y;
+		pos_z = player.position.z;
+	}
+	void AddToUpdateMessage(array<uint8>@ message){
+		if(pos_x != player.position.x){
+			pos_x = player.position.x;
+			addToByteArray(position_x, message);
+			addToByteArray(pos_x, message);
+		}
+		if(pos_y != player.position.y){
+			pos_y = player.position.y;
+			addToByteArray(position_y, message);
+			addToByteArray(pos_y, message);
+		}
+		if(pos_z != player.position.z){
+			pos_z = player.position.z;
+			addToByteArray(position_z, message);
+			addToByteArray(pos_z, message);
+		}
+	}
+}
+
+enum PlayerVariableType{
+	crouch = 0,
+	jump = 1,
+	attack = 2,
+	grab = 3,
+	item = 4,
+	drop = 5,
+	blood_damage = 6,
+	blood_health = 7,
+	block_health = 8,
+	temp_health = 9,
+	permanent_health = 10,
+	blood_amount = 11,
+	recovery_time = 12,
+	roll_recovery_time = 13,
+	knocked_out = 14,
+	ragdoll_type = 15,
+	blood_delay = 16,
+	state = 17,
+	cut_throat = 18,
+	position_x = 19,
+	position_y = 20,
+	position_z = 21,
+	direction_x = 22,
+	direction_z = 23
+}
+
+PlayerVariables player_variables;
+void SetupPlayerVariables(){
+	if(player_id == -1){
 		return;
 	}
 	MovementObject@ player = ReadCharacterID(player_id);
 	int controller_id = player.controller_id;
-    MPWantsToCrouch = GetInputDown(controller_id, "crouch");
-    MPWantsToJump = GetInputDown(controller_id, "jump");
-    MPWantsToAttack = GetInputDown(controller_id, "attack");
-    MPWantsToGrab = GetInputDown(controller_id, "grab");
-    MPWantsToItem = GetInputDown(controller_id, "item");
-    MPWantsToDrop = GetInputDown(controller_id, "drop");
+	player_variables.ClearAll();
+	//All the input variables to keep track of.
+	player_variables.AddVariable(PlayerVariableInput(controller_id, "crouch", crouch));
+	player_variables.AddVariable(PlayerVariableInput(controller_id, "jump", jump));
+	player_variables.AddVariable(PlayerVariableInput(controller_id, "attack", attack));
+	player_variables.AddVariable(PlayerVariableInput(controller_id, "grab", grab));
+	player_variables.AddVariable(PlayerVariableInput(controller_id, "item", item));
+	player_variables.AddVariable(PlayerVariableInput(controller_id, "drop", drop));
+	//All the float variables.
+	player_variables.AddVariable(PlayerVariableFloatVar(player_id, "blood_damage", blood_damage));
+	player_variables.AddVariable(PlayerVariableFloatVar(player_id, "blood_health", blood_health));
+	player_variables.AddVariable(PlayerVariableFloatVar(player_id, "block_health", block_health));
+	player_variables.AddVariable(PlayerVariableFloatVar(player_id, "temp_health", temp_health));
+	player_variables.AddVariable(PlayerVariableFloatVar(player_id, "permanent_health", permanent_health));
+	player_variables.AddVariable(PlayerVariableFloatVar(player_id, "blood_amount", blood_amount));
+	player_variables.AddVariable(PlayerVariableFloatVar(player_id, "recovery_time", recovery_time));
+	player_variables.AddVariable(PlayerVariableFloatVar(player_id, "roll_recovery_time", roll_recovery_time));
 
-	blood_damage = player.GetFloatVar("blood_damage");
-	blood_health = player.GetFloatVar("blood_health");
-	block_health = player.GetFloatVar("block_health");
-	temp_health = player.GetFloatVar("temp_health");
-	permanent_health = player.GetFloatVar("permanent_health");
-	blood_amount = player.GetFloatVar("blood_amount");
-	recovery_time = player.GetFloatVar("recovery_time");
-	roll_recovery_time = player.GetFloatVar("roll_recovery_time");
-	knocked_out = player.GetIntVar("knocked_out");
-	ragdoll_type = player.GetIntVar("ragdoll_type");
-	blood_delay = player.GetIntVar("blood_delay");
-	state = player.GetIntVar("state");
-	cut_throat = player.GetBoolVar("cut_throat");
+	//All the integer variables.
+	player_variables.AddVariable(PlayerVariableIntVar(player_id, "knocked_out", knocked_out));
+	player_variables.AddVariable(PlayerVariableIntVar(player_id, "ragdoll_type", ragdoll_type));
+	player_variables.AddVariable(PlayerVariableIntVar(player_id, "blood_delay", blood_delay));
+	player_variables.AddVariable(PlayerVariableIntVar(player_id, "state", state));
+	//All the bool variables.
+	player_variables.AddVariable(PlayerVariableBoolVar(player_id, "cut_throat", cut_throat));
+
+	player_variables.AddVariable(PlayerVariablePosition(player_id));
+	player_variables.AddVariable(PlayerVariableDirection(player_id));
+}
+
+void UpdatePlayerVariables(){
+	if(chat.chat_input_shown){
+		return;
+	}
+	/*array<uint8> message;*/
+	/*player_variables.AddUpdateMessage(@message);*/
+	//Print("Size " + message.size() + "\n");
+	//PrintByteArray(message);
 }
 
 void UpdateInput(){
