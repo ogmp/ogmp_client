@@ -11,6 +11,8 @@ Inputfield username_field;
 Inputfield address_field;
 Inputfield port_field;
 
+int upload_bandwidth = 0;
+int download_bandwidth = 0;
 
 enum ClientUIState {
 	UsernameUI = 0,
@@ -66,6 +68,7 @@ string port = "9000";
 void Init(string p_level_name) {
 	level_path = GetLevelPath();
 	level_name = p_level_name;
+	imGUI.setHeaderPanels(300, 300);
 	imGUI.setFooterHeight(350);
 	imGUI.setHeaderHeight(100);
 	imGUI.setup();
@@ -102,6 +105,7 @@ bool HandleConnectOnInit(){
 }
 
 void IncomingTCPData(uint socket, array<uint8>@ data) {
+	download_bandwidth += data.size();
     for( uint i = 0; i < data.length(); i++ ) {
 		data_collection.insertLast(data[i]);
     }
@@ -1355,6 +1359,7 @@ void PostInit(){
 void Update(int paused) {
 	server_retriever.Update();
 	UpdateConnectedIcon();
+	UpdateBandwidth();
 	username_field.Update();
 	address_field.Update();
 	port_field.Update();
@@ -1523,6 +1528,33 @@ void UpdateConnectedIcon(){
 		icon.setSize(vec2(100, 100));
 		imGUI.getHeader().setElement(icon);
 		connected_icon_state = true;
+	}
+}
+float bandwith_timer = 0.0f;
+void UpdateBandwidth(){
+	if(connected_to_server){
+		bandwith_timer += time_step;
+		if(bandwith_timer >= 1.0f){
+			imGUI.getHeader(1).clear();
+			bandwith_timer = 0.0f;
+			IMText upload_text("Upload " + upload_bandwidth + " bytes/second", client_connect_font);
+			IMText download_text("Download " + download_bandwidth + " bytes/second", client_connect_font);
+			IMDivider bandwith_divider(DOVertical);
+			bandwith_divider.append(upload_text);
+			bandwith_divider.append(download_text);
+
+			IMImage background(white_background);
+			background.setSize(vec2(300, 300));
+			background.setZOrdering(0);
+			background.setBorderColor(vec4(0,0,0,0.25));
+			background.setBorderSize(1.0f);
+			background.setColor(vec4(0,0,0,0.5));
+			imGUI.getHeader(1).addFloatingElement(background, "background", vec2(0.0f));
+
+			imGUI.getHeader(1).setElement(bandwith_divider);
+			upload_bandwidth = 0;
+			download_bandwidth = 0;
+		}
 	}
 }
 
@@ -2103,6 +2135,7 @@ void UpdateInput(){
 void SendData(array<uint8> message){
     if( IsValidSocketTCP(main_socket) ){
 		/*Print("Sending data size " + message.size() + "\n");*/
+		upload_bandwidth += message.size();
         SocketTCPSend(main_socket,message);
     }
 	else{
