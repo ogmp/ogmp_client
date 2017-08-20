@@ -173,122 +173,19 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		Print("Received updateself" + data.size() + "\n");
 		MovementObject@ player = ReadCharacterID(player_id);
 		while(data_index < int(data.size())){
-			PlayerVariableType current_type = PlayerVariableType(GetInt(data, data_index));
-			Print("Received type " + current_type + "\n");
-			switch (current_type)
-	        {
-	            case blood_damage:
-					player.Execute("blood_damage = " + GetFloat(data, data_index) + ";");
-	                break;
-	            case blood_health:
-					player.Execute("blood_health = " + GetFloat(data, data_index) + ";");
-	                break;
-	            case block_health:
-					player.Execute("block_health = " + GetFloat(data, data_index) + ";");
-	                break;
-	            case temp_health:
-					player.Execute("temp_health = " + GetFloat(data, data_index) + ";");
-	                break;
-	            case permanent_health:
-					player.Execute("permanent_health = " + GetFloat(data, data_index) + ";");
-	                break;
-	            case blood_amount:
-					player.Execute("blood_amount = " + GetFloat(data, data_index) + ";");
-	                break;
-	            case recovery_time:
-					player.Execute("recovery_time = " + GetFloat(data, data_index) + ";");
-	                break;
-	            case roll_recovery_time:
-					player.Execute("roll_recovery_time = " + GetFloat(data, data_index) + ";");
-	                break;
-	            case knocked_out:
-					//Nothing yet
-	                break;
-	            case ragdoll_type:
-					player.Execute("ragdoll_type = " + GetInt(data, data_index) + ";");
-	                break;
-	            case blood_delay:
-					//Nothing yet
-	                break;
-	            case state:
-					//Nothing yet
-	                break;
-	            case cut_throat:
-					player.Execute("cut_throat = " + GetBool(data, data_index) + ";");
-	                break;
-				case remove_blood:
-					player.Execute("Recover();");
-	                break;
-	            default:
-	                break;
-	        }
+			PlayerVariableType variable_type = PlayerVariableType(GetInt(data, data_index));
+			if(player !is null){
+				SetCharacterVariables(player, variable_type, data, data_index, data_index);
+			}
 		}
 	}
 	else if (message_type == UpdateCharacter){
 		string remote_username = GetString(data, data_index);
-		float remote_posx = GetFloat(data, data_index);
-		float remote_posy = GetFloat(data, data_index);
-		float remote_posz = GetFloat(data, data_index);
-		float remote_dirx = GetFloat(data, data_index);
-		float remote_dirz = GetFloat(data, data_index);
-
-		bool remote_crouch = GetBool(data, data_index);
-		bool remote_jump = GetBool(data, data_index);
-		bool remote_attack = GetBool(data, data_index);
-		bool remote_grab = GetBool(data, data_index);
-		bool remote_item = GetBool(data, data_index);
-		bool remote_drop = GetBool(data, data_index);
-		bool remote_roll = GetBool(data, data_index);
-		bool remote_jumpoffwall = GetBool(data, data_index);
-		bool remote_activateblock = GetBool(data, data_index);
-
-		float remote_blooddamage = GetFloat(data, data_index);
-		float remote_bloodhealth = GetFloat(data, data_index);
-		float remote_blockhealth = GetFloat(data, data_index);
-		float remote_temphealth = GetFloat(data, data_index);
-		float remote_permanenthealth = GetFloat(data, data_index);
-
-		int remote_knockedout = GetInt(data, data_index);
-
-		float remote_bloodamount = GetFloat(data, data_index);
-		float remote_recoverytime = GetFloat(data, data_index);
-		float remote_rollrecoverytime = GetFloat(data, data_index);
-		int remote_ragdolltype = GetInt(data, data_index);
-
-		bool remote_removeblood = GetBool(data, data_index);
-		int remote_blooddelay = GetInt(data, data_index);
-		bool remote_cutthroat = GetBool(data, data_index);
-		int remote_state = GetInt(data, data_index);
-
 		MovementObject@ remote_player = GetRemotePlayer(remote_username);
 		if(remote_player !is null){
-			remote_player.position = vec3(remote_posx, remote_posy, remote_posz);
-			remote_player.Execute("dir_x = " + remote_dirx + ";");
-			remote_player.Execute("dir_z = " + remote_dirz + ";");
-			remote_player.Execute("MPWantsToCrouch = " + remote_crouch + ";");
-			remote_player.Execute("MPWantsToJump = " + remote_jump + ";");
-			remote_player.Execute("MPWantsToAttack = " + remote_attack + ";");
-			remote_player.Execute("MPWantsToGrab = " + remote_grab + ";");
-			remote_player.Execute("MPWantsToItem = " + remote_item + ";");
-			remote_player.Execute("MPWantsToDrop = " + remote_drop + ";");
-			remote_player.Execute("MPWantsToRoll = " + remote_roll + ";");
-			remote_player.Execute("MPWantsToJumpOffWall = " + remote_jumpoffwall + ";");
-			remote_player.Execute("MPActiveBlock = " + remote_activateblock + ";");
-
-			remote_player.Execute("blood_damage = " + remote_blooddamage + ";");
-			remote_player.Execute("blood_health = " + remote_bloodhealth + ";");
-			remote_player.Execute("block_health = " + remote_blockhealth + ";");
-			remote_player.Execute("temp_health = " + remote_temphealth + ";");
-			remote_player.Execute("permanent_health = " + remote_permanenthealth + ";");
-			remote_player.Execute("blood_amount = " + remote_bloodamount + ";");
-			remote_player.Execute("recovery_time = " + remote_recoverytime + ";");
-			remote_player.Execute("roll_recovery_time = " + remote_rollrecoverytime + ";");
-
-			remote_player.Execute("ragdoll_type = " + remote_ragdolltype + ";");
-			remote_player.Execute("knocked_out = " + remote_knockedout + ";");
-			remote_player.Execute("blood_delay = " + remote_blooddelay + ";");
-			if(remote_player.GetIntVar("knocked_out") != _awake && remote_permanenthealth == 1.0f){
-				remote_player.Execute("Recover();");
+			while(data_index < int(data.size())){
+				PlayerVariableType variable_type = PlayerVariableType(GetInt(data, data_index));
+				SetCharacterVariables(remote_player, variable_type, data, data_index, data_index);
 			}
 		}else{
 			Log(error, "Can't find the user!");
@@ -355,6 +252,93 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		PrintByteArrayString(data);
 	}
 }
+
+void SetCharacterVariables(MovementObject@ character, PlayerVariableType variable_type, array<uint8>@ data, int &in data_index_in, int &out data_index_out){
+	int data_index = data_index_in;
+	switch (variable_type)
+	{
+		case blood_damage:
+			character.Execute("blood_damage = " + GetFloat(data, data_index) + ";");
+			break;
+		case blood_health:
+			character.Execute("blood_health = " + GetFloat(data, data_index) + ";");
+			break;
+		case block_health:
+			character.Execute("block_health = " + GetFloat(data, data_index) + ";");
+			break;
+		case temp_health:
+			character.Execute("temp_health = " + GetFloat(data, data_index) + ";");
+			break;
+		case permanent_health:
+			character.Execute("permanent_health = " + GetFloat(data, data_index) + ";");
+			break;
+		case blood_amount:
+			character.Execute("blood_amount = " + GetFloat(data, data_index) + ";");
+			break;
+		case recovery_time:
+			character.Execute("recovery_time = " + GetFloat(data, data_index) + ";");
+			break;
+		case roll_recovery_time:
+			character.Execute("roll_recovery_time = " + GetFloat(data, data_index) + ";");
+			break;
+		case knocked_out:
+			//Nothing yet
+			break;
+		case ragdoll_type:
+			character.Execute("ragdoll_type = " + GetInt(data, data_index) + ";");
+			break;
+		case blood_delay:
+			//Nothing yet
+			break;
+		case state:
+			//Nothing yet
+			break;
+		case cut_throat:
+			character.Execute("cut_throat = " + GetBool(data, data_index) + ";");
+			break;
+		case remove_blood:
+			GetBool(data, data_index);
+			character.Execute("Recover();");
+			break;
+		case crouch:
+			character.Execute("MPWantsToCrouch = " + GetBool(data, data_index) + ";");
+			break;
+		case jump:
+			character.Execute("MPWantsToJump = " + GetBool(data, data_index) + ";");
+			break;
+		case attack:
+			character.Execute("MPWantsToAttack = " + GetBool(data, data_index) + ";");
+			break;
+		case grab:
+			character.Execute("MPWantsToGrab = " + GetBool(data, data_index) + ";");
+			break;
+		case item:
+			character.Execute("MPWantsToItem = " + GetBool(data, data_index) + ";");
+			break;
+		case drop:
+			character.Execute("MPWantsToDrop = " + GetBool(data, data_index) + ";");
+			break;
+		case position_x:
+			character.position.x = GetFloat(data, data_index);
+			break;
+		case position_y:
+			character.position.y = GetFloat(data, data_index);
+			break;
+		case position_z:
+			character.position.z = GetFloat(data, data_index);
+			break;
+		case direction_x:
+			character.Execute("dir_x = " + GetFloat(data, data_index) + ";");
+			break;
+		case direction_z:
+			character.Execute("dir_z = " + GetFloat(data, data_index) + ";");
+			break;
+		default:
+			break;
+	}
+	data_index_out = data_index;
+}
+
 
 MovementObject@ GetRemotePlayer(string username){
 	for(uint i = 0; i < remote_players.size(); i++){
@@ -1277,6 +1261,7 @@ void PostInit(){
 		//Create a random username from an adjactive and a noun.
 		username = adjectives[rand() % adjectives.length()] + nouns[rand() % nouns.length()];
 	}
+	SetupPlayerVariables();
 }
 
 void Update(int paused) {
@@ -1810,7 +1795,7 @@ class PlayerVariableInput : PlayerVariable{
 			current_value = source_value;
 			addToByteArray(variable_type, message);
 			addToByteArray(current_value, message);
-			/*Print("Variable " + key_name + " value " + current_value + "\n");*/
+			Print("Variable " + key_name + " value " + current_value + "\n");
 		}
 	}
 }
@@ -1834,7 +1819,7 @@ class PlayerVariableFloatVar : PlayerVariable{
 			current_value = source_value;
 			addToByteArray(variable_type, message);
 			addToByteArray(current_value, message);
-			/*Print("Variable " + var_name + " value " + current_value + "\n");*/
+			Print("Variable " + var_name + " value " + current_value + "\n");
 		}
 	}
 }
@@ -1858,7 +1843,7 @@ class PlayerVariableIntVar : PlayerVariable{
 			current_value = source_value;
 			addToByteArray(variable_type, message);
 			addToByteArray(current_value, message);
-			/*Print("Variable " + var_name + " value " + current_value + "\n");*/
+			Print("Variable " + var_name + " value " + current_value + "\n");
 		}
 	}
 }
@@ -1882,7 +1867,7 @@ class PlayerVariableBoolVar : PlayerVariable{
 			current_value = source_value;
 			addToByteArray(variable_type, message);
 			addToByteArray(current_value, message);
-			/*Print("Variable " + var_name + " value " + current_value + "\n");*/
+			Print("Variable " + var_name + " value " + current_value + "\n");
 		}
 	}
 }
@@ -1902,13 +1887,13 @@ class PlayerVariableDirection : PlayerVariable{
 			dir_x = player_dir.x;
 			addToByteArray(direction_x, message);
 			addToByteArray(dir_x, message);
-			/*Print("Variable dirx" + " value " + dir_x + "\n");*/
+			Print("Variable dirx" + " value " + dir_x + "\n");
 		}
 		if(dir_z != player_dir.z || initial_update){
 			dir_z = player_dir.z;
 			addToByteArray(direction_z, message);
 			addToByteArray(dir_z, message);
-			/*Print("Variable dirz" + " value " + dir_z + "\n");*/
+			Print("Variable dirz" + " value " + dir_z + "\n");
 		}
 		initial_update = false;
 	}
@@ -1928,19 +1913,19 @@ class PlayerVariablePosition : PlayerVariable{
 			pos_x = player.position.x;
 			addToByteArray(position_x, message);
 			addToByteArray(pos_x, message);
-			/*Print("Variable posx" + " value " + pos_x + "\n");*/
+			Print("Variable posx" + " value " + pos_x + "\n");
 		}
 		if(pos_y != player.position.y || initial_update){
 			pos_y = player.position.y;
 			addToByteArray(position_y, message);
 			addToByteArray(pos_y, message);
-			/*Print("Variable posy" + " value " + pos_y + "\n");*/
+			Print("Variable posy" + " value " + pos_y + "\n");
 		}
 		if(pos_z != player.position.z || initial_update){
 			pos_z = player.position.z;
 			addToByteArray(position_z, message);
 			addToByteArray(pos_z, message);
-			/*Print("Variable posz" + " value " + pos_z + "\n");*/
+			Print("Variable posz" + " value " + pos_z + "\n");
 		}
 		initial_update = false;
 	}
