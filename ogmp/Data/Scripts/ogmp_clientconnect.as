@@ -282,16 +282,16 @@ void SetCharacterVariables(MovementObject@ character, PlayerVariableType variabl
 			character.Execute("roll_recovery_time = " + GetFloat(data, data_index) + ";");
 			break;
 		case knocked_out:
-			//Nothing yet
+			character.Execute("knocked_out = " + GetInt(data, data_index) + ";");
 			break;
 		case ragdoll_type:
 			character.Execute("ragdoll_type = " + GetInt(data, data_index) + ";");
 			break;
 		case blood_delay:
-			//Nothing yet
+			character.Execute("blood_delay = " + GetInt(data, data_index) + ";");
 			break;
 		case state:
-			//Nothing yet
+			character.Execute("state = " + GetInt(data, data_index) + ";");
 			break;
 		case cut_throat:
 			character.Execute("cut_throat = " + GetBool(data, data_index) + ";");
@@ -1959,7 +1959,7 @@ enum PlayerVariableType{
 	remove_blood = 24
 }
 
-//Add roll jumpoffwall and activeblock
+//TODO Add roll jumpoffwall and activeblock
 
 PlayerVariables player_variables;
 void SetupPlayerVariables(){
