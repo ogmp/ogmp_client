@@ -2,7 +2,6 @@
 #include "situationawareness.as"
 
 float grab_key_time;
-bool listening = false;
 bool delay_jump;
 string MPUsername = "";
 int username_billboard = -1;
@@ -16,9 +15,25 @@ bool MPWantsToDrop = false;
 bool MPWantsToRoll = false;
 bool MPWantsToJumpOffWall = false;
 bool MPActiveBlock = false;
-bool MPIsConnected = false;
+bool MPCutThroat = false;
+int MPState = _movement_state;
+int MPBloodDelay = 0;
+int MPRagdollType = 0;
+int MPKnockedOut = _awake;
+float MPRollRecoveryTime = 1.0f;
+float MPRecoveryTime = 1.0f;
+float MPBloodAmount = 10.0f;
+float MPPermanentHealth = 1.0f;
+float MPTempHealth = 1.0f;
+float MPBlockHealth = 1.0f;
+float MPBloodHealth = 1.0f;
+float MPBloodDamage = 0.0f;
+
 float dir_z = 0.0f;
 float dir_x = 0.0f;
+float MPPositionX = 0.0f;
+float MPPositionY = 0.0f;
+float MPPositionZ = 0.0f;
 
 enum PathFindType {_pft_nav_mesh, _pft_climb, _pft_drop, _pft_jump};
 PathFindType path_find_type = _pft_nav_mesh;
@@ -55,7 +70,58 @@ int IsAggro() {
     return 1;
 }
 
+void SetCharacterPosition(){
+    if(MPPositionX != 0.0f){
+        this_mo.position = vec3(MPPositionX, MPPositionY, MPPositionZ);
+    }
+}
+
+void KeepVariablesSynced(){
+    if(cut_throat != MPCutThroat){
+        cut_throat = MPCutThroat;
+    }
+    if(knocked_out != MPKnockedOut){
+        Print("Set knocked out! " + MPKnockedOut + "\n");
+        SetKnockedOut(MPKnockedOut);
+        SetCharacterPosition();
+    }
+    /*if(state != MPState){
+        state = MPState;
+    }*/
+    if(blood_delay != MPBloodDelay){
+        blood_delay = MPBloodDelay;
+    }
+    if(ragdoll_type != MPRagdollType){
+        ragdoll_type = MPRagdollType;
+    }
+    if(roll_recovery_time != MPRollRecoveryTime){
+        roll_recovery_time = MPRollRecoveryTime;
+    }
+    if(recovery_time != MPRecoveryTime){
+        recovery_time = MPRecoveryTime;
+    }
+    if(blood_amount != MPBloodAmount){
+        blood_amount = MPBloodAmount;
+    }
+    if(permanent_health != MPPermanentHealth){
+        permanent_health = MPPermanentHealth;
+    }
+    if(temp_health != MPTempHealth){
+        temp_health = MPTempHealth;
+    }
+    if(block_health != MPBlockHealth){
+        block_health = MPBlockHealth;
+    }
+    if(blood_health != MPBloodHealth){
+        blood_health = MPBloodHealth;
+    }
+    if(blood_damage != MPBloodDamage){
+        blood_damage = MPBloodDamage;
+    }
+}
+
 void UpdateBrain(const Timestep &in ts){
+    KeepVariablesSynced();
     startled = false;
     if(MPWantsToGrab){
         grab_key_time += ts.step();
@@ -306,7 +372,7 @@ bool WantsToCancelAnimation() {
 // Converts the keyboard controls into a target velocity that is used for movement calculations in aschar.as and aircontrol.as.
 vec3 GetTargetVelocity() {
     vec3 target_velocity = vec3(dir_x, 0.0f, dir_z);
-    
+
     if(length_squared(target_velocity)>1){
         target_velocity = normalize(target_velocity);
     }
@@ -370,7 +436,7 @@ int GetRightFootPlanted(){
 }
 bool StuckToNavMesh() {
     if(path_find_type == _pft_nav_mesh){
-        vec3 nav_pos = GetNavPointPos(this_mo.position); 
+        vec3 nav_pos = GetNavPointPos(this_mo.position);
         if(abs(nav_pos[1] - this_mo.position[1]) > 1.0){
             return false;
         }

@@ -170,7 +170,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 	else if (message_type == UpdateGame){
 	}
 	else if (message_type == UpdateSelf){
-		Print("Received updateself" + data.size() + "\n");
+		/*Print("Received updateself" + data.size() + "\n");*/
 		MovementObject@ player = ReadCharacterID(player_id);
 		while(data_index < int(data.size())){
 			PlayerVariableType variable_type = PlayerVariableType(GetInt(data, data_index));
@@ -255,47 +255,114 @@ void ProcessIncomingMessage(array<uint8>@ data){
 
 void SetCharacterVariables(MovementObject@ character, PlayerVariableType variable_type, array<uint8>@ data, int &in data_index_in, int &out data_index_out){
 	int data_index = data_index_in;
+	/*Print("Updating character " + variable_type + "\n");*/
+	bool is_player = character.controlled;
 	switch (variable_type)
 	{
-		case blood_damage:
-			character.Execute("blood_damage = " + GetFloat(data, data_index) + ";");
+		case blood_damage:{
+			if(is_player){
+				character.Execute("blood_damage = " + GetFloat(data, data_index) + ";");
+			}else{
+				character.Execute("MPBloodDamage = " + GetFloat(data, data_index) + ";");
+			}
 			break;
-		case blood_health:
-			character.Execute("blood_health = " + GetFloat(data, data_index) + ";");
+		}
+		case blood_health:{
+			if(is_player){
+				character.Execute("blood_health = " + GetFloat(data, data_index) + ";");
+			}else{
+				character.Execute("MPBloodHealth = " + GetFloat(data, data_index) + ";");
+			}
 			break;
-		case block_health:
-			character.Execute("block_health = " + GetFloat(data, data_index) + ";");
+		}
+		case block_health:{
+			if(is_player){
+				character.Execute("block_health = " + GetFloat(data, data_index) + ";");
+			}else{
+				character.Execute("MPBlockHealth = " + GetFloat(data, data_index) + ";");
+			}
 			break;
-		case temp_health:
-			character.Execute("temp_health = " + GetFloat(data, data_index) + ";");
+		}
+		case temp_health:{
+			if(is_player){
+				character.Execute("temp_health = " + GetFloat(data, data_index) + ";");
+			}else{
+				character.Execute("MPTempHealth = " + GetFloat(data, data_index) + ";");
+			}
 			break;
-		case permanent_health:
-			character.Execute("permanent_health = " + GetFloat(data, data_index) + ";");
+		}
+		case permanent_health:{
+			if(is_player){
+				character.Execute("permanent_health = " + GetFloat(data, data_index) + ";");
+			}else{
+				character.Execute("MPPermanentHealth = " + GetFloat(data, data_index) + ";");
+			}
 			break;
-		case blood_amount:
-			character.Execute("blood_amount = " + GetFloat(data, data_index) + ";");
+		}
+		case blood_amount:{
+			if(is_player){
+				character.Execute("blood_amount = " + GetFloat(data, data_index) + ";");
+			}else{
+				character.Execute("MPBloodAmount = " + GetFloat(data, data_index) + ";");
+			}
 			break;
-		case recovery_time:
-			character.Execute("recovery_time = " + GetFloat(data, data_index) + ";");
+		}
+		case recovery_time:{
+			if(is_player){
+				character.Execute("recovery_time = " + GetFloat(data, data_index) + ";");
+			}else{
+				character.Execute("MPRecoveryTime = " + GetFloat(data, data_index) + ";");
+			}
 			break;
-		case roll_recovery_time:
-			character.Execute("roll_recovery_time = " + GetFloat(data, data_index) + ";");
+		}
+		case roll_recovery_time:{
+			if(is_player){
+				character.Execute("roll_recovery_time = " + GetFloat(data, data_index) + ";");
+			}else{
+				character.Execute("MPRollRecoveryTime = " + GetFloat(data, data_index) + ";");
+			}
 			break;
-		case knocked_out:
-			character.Execute("knocked_out = " + GetInt(data, data_index) + ";");
+		}
+		case knocked_out:{
+			if(is_player){
+				character.Execute("knocked_out = " + GetInt(data, data_index) + ";");
+			}else{
+				character.Execute("MPKnockedOut = " + GetInt(data, data_index) + ";");
+			}
 			break;
-		case ragdoll_type:
-			character.Execute("ragdoll_type = " + GetInt(data, data_index) + ";");
+		}
+		case ragdoll_type:{
+			if(is_player){
+				character.Execute("ragdoll_type = " + GetInt(data, data_index) + ";");
+			}else{
+				character.Execute("MPRagdollType = " + GetInt(data, data_index) + ";");
+			}
 			break;
-		case blood_delay:
-			character.Execute("blood_delay = " + GetInt(data, data_index) + ";");
+		}
+		case blood_delay:{
+			if(is_player){
+				character.Execute("blood_delay = " + GetInt(data, data_index) + ";");
+			}else{
+				character.Execute("MPBloodDelay = " + GetInt(data, data_index) + ";");
+			}
 			break;
-		case state:
-			character.Execute("state = " + GetInt(data, data_index) + ";");
+		}
+		case state:{
+			if(is_player){
+				character.Execute("state = " + GetInt(data, data_index) + ";");
+			}else{
+				character.Execute("MPState = " + GetInt(data, data_index) + ";");
+			}
 			break;
-		case cut_throat:
-			character.Execute("cut_throat = " + GetBool(data, data_index) + ";");
+		}
+		case cut_throat:{
+			if(is_player){
+				character.Execute("cut_throat = " + GetBool(data, data_index) + ";");
+			}else{
+				character.Execute("MPCutThroat = " + GetBool(data, data_index) + ";");
+			}
 			break;
+		}
 		case remove_blood:
 			GetBool(data, data_index);
 			character.Execute("Recover();");
@@ -318,15 +385,36 @@ void SetCharacterVariables(MovementObject@ character, PlayerVariableType variabl
 		case drop:
 			character.Execute("MPWantsToDrop = " + GetBool(data, data_index) + ";");
 			break;
-		case position_x:
-			character.position.x = GetFloat(data, data_index);
+		case position_x:{
+			if(is_player){
+				character.position.x = GetFloat(data, data_index);
+			}else{
+				float new_position_x = GetFloat(data, data_index);
+				character.position.x = new_position_x;
+				character.Execute("MPPositionX = " + new_position_x + ";");
+			}
 			break;
-		case position_y:
-			character.position.y = GetFloat(data, data_index);
+		}
+		case position_y:{
+			if(is_player){
+				character.position.y = GetFloat(data, data_index);
+			}else{
+				float new_position_y = GetFloat(data, data_index);
+				character.position.y = new_position_y;
+				character.Execute("MPPositionY = " + new_position_y + ";");
+			}
 			break;
-		case position_z:
-			character.position.z = GetFloat(data, data_index);
+		}
+		case position_z:{
+			if(is_player){
+				character.position.z = GetFloat(data, data_index);
+			}else{
+				float new_position_z = GetFloat(data, data_index);
+				character.position.z = new_position_z;
+				character.Execute("MPPositionZ = " + new_position_z + ";");
+			}
 			break;
+		}
 		case direction_x:
 			character.Execute("dir_x = " + GetFloat(data, data_index) + ";");
 			break;
@@ -1706,11 +1794,11 @@ void SendPlayerUpdate(){
 	message.insertLast(UpdateGame);
 
 	player_variables.AddUpdateMessage(@message);
-
-	MPWantsToRoll = false;
-	MPWantsToJumpOffWall = false;
-	MPActiveBlock = false;
+	/*PrintByteArray(message);*/
 	SendData(message);
+	/*MPWantsToRoll = false;
+	MPWantsToJumpOffWall = false;
+	MPActiveBlock = false;*/
 }
 
 vec3 GetPlayerTargetVelocity() {
@@ -1795,7 +1883,7 @@ class PlayerVariableInput : PlayerVariable{
 			current_value = source_value;
 			addToByteArray(variable_type, message);
 			addToByteArray(current_value, message);
-			Print("Variable " + key_name + " value " + current_value + "\n");
+			/*Print("Variable " + key_name + " value " + current_value + "\n");*/
 		}
 	}
 }
@@ -1819,7 +1907,7 @@ class PlayerVariableFloatVar : PlayerVariable{
 			current_value = source_value;
 			addToByteArray(variable_type, message);
 			addToByteArray(current_value, message);
-			Print("Variable " + var_name + " value " + current_value + "\n");
+			/*Print("Variable " + var_name + " value " + current_value + "\n");*/
 		}
 	}
 }
@@ -1843,7 +1931,7 @@ class PlayerVariableIntVar : PlayerVariable{
 			current_value = source_value;
 			addToByteArray(variable_type, message);
 			addToByteArray(current_value, message);
-			Print("Variable " + var_name + " value " + current_value + "\n");
+			/*Print("Variable " + var_name + " value " + current_value + "\n");*/
 		}
 	}
 }
@@ -1867,7 +1955,7 @@ class PlayerVariableBoolVar : PlayerVariable{
 			current_value = source_value;
 			addToByteArray(variable_type, message);
 			addToByteArray(current_value, message);
-			Print("Variable " + var_name + " value " + current_value + "\n");
+			/*Print("Variable " + var_name + " value " + current_value + "\n");*/
 		}
 	}
 }
@@ -1887,13 +1975,13 @@ class PlayerVariableDirection : PlayerVariable{
 			dir_x = player_dir.x;
 			addToByteArray(direction_x, message);
 			addToByteArray(dir_x, message);
-			Print("Variable dirx" + " value " + dir_x + "\n");
+			/*Print("Variable dirx" + " value " + dir_x + "\n");*/
 		}
 		if(dir_z != player_dir.z || initial_update){
 			dir_z = player_dir.z;
 			addToByteArray(direction_z, message);
 			addToByteArray(dir_z, message);
-			Print("Variable dirz" + " value " + dir_z + "\n");
+			/*Print("Variable dirz" + " value " + dir_z + "\n");*/
 		}
 		initial_update = false;
 	}
@@ -1913,19 +2001,19 @@ class PlayerVariablePosition : PlayerVariable{
 			pos_x = player.position.x;
 			addToByteArray(position_x, message);
 			addToByteArray(pos_x, message);
-			Print("Variable posx" + " value " + pos_x + "\n");
+			/*Print("Variable posx" + " value " + pos_x + "\n");*/
 		}
 		if(pos_y != player.position.y || initial_update){
 			pos_y = player.position.y;
 			addToByteArray(position_y, message);
 			addToByteArray(pos_y, message);
-			Print("Variable posy" + " value " + pos_y + "\n");
+			/*Print("Variable posy" + " value " + pos_y + "\n");*/
 		}
 		if(pos_z != player.position.z || initial_update){
 			pos_z = player.position.z;
 			addToByteArray(position_z, message);
 			addToByteArray(pos_z, message);
-			Print("Variable posz" + " value " + pos_z + "\n");
+			/*Print("Variable posz" + " value " + pos_z + "\n");*/
 		}
 		initial_update = false;
 	}
@@ -2014,6 +2102,7 @@ void UpdateInput(){
 
 void SendData(array<uint8> message){
     if( IsValidSocketTCP(main_socket) ){
+		/*Print("Sending data size " + message.size() + "\n");*/
         SocketTCPSend(main_socket,message);
     }
 	else{
