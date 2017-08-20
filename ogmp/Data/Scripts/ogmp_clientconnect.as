@@ -170,34 +170,58 @@ void ProcessIncomingMessage(array<uint8>@ data){
 	else if (message_type == UpdateGame){
 	}
 	else if (message_type == UpdateSelf){
-		Print("Received updateself\n");
+		Print("Received updateself" + data.size() + "\n");
 		MovementObject@ player = ReadCharacterID(player_id);
-
-		float blooddamage = GetFloat(data, data_index);
-		float bloodhealth = GetFloat(data, data_index);
-		float blockhealth = GetFloat(data, data_index);
-		float temphealth = GetFloat(data, data_index);
-		float permanenthealth = GetFloat(data, data_index);
-		float bloodamount = GetFloat(data, data_index);
-		float recoverytime = GetFloat(data, data_index);
-		float rollrecoverytime = GetFloat(data, data_index);
-		int ragdoll_type = GetInt(data, data_index);
-		bool removeblood = GetBool(data, data_index);
-		bool cutthroat = GetBool(data, data_index);
-
-		player.Execute("blood_damage = " + blooddamage + ";");
-		player.Execute("blood_health = " + bloodhealth + ";");
-		player.Execute("block_health = " + blockhealth + ";");
-		player.Execute("temp_health = " + temphealth + ";");
-		player.Execute("permanent_health = " + permanenthealth + ";");
-		player.Execute("blood_amount = " + bloodamount + ";");
-		player.Execute("recovery_time = " + recoverytime + ";");
-		player.Execute("roll_recovery_time = " + rollrecoverytime + ";");
-		player.Execute("ragdoll_type = " + ragdoll_type + ";");
-		player.Execute("cut_throat = " + cutthroat + ";");
-
-		if(removeblood){
-			player.Execute("Recover();");
+		while(data_index < int(data.size())){
+			PlayerVariableType current_type = PlayerVariableType(GetInt(data, data_index));
+			Print("Received type " + current_type + "\n");
+			switch (current_type)
+	        {
+	            case blood_damage:
+					player.Execute("blood_damage = " + GetFloat(data, data_index) + ";");
+	                break;
+	            case blood_health:
+					player.Execute("blood_health = " + GetFloat(data, data_index) + ";");
+	                break;
+	            case block_health:
+					player.Execute("block_health = " + GetFloat(data, data_index) + ";");
+	                break;
+	            case temp_health:
+					player.Execute("temp_health = " + GetFloat(data, data_index) + ";");
+	                break;
+	            case permanent_health:
+					player.Execute("permanent_health = " + GetFloat(data, data_index) + ";");
+	                break;
+	            case blood_amount:
+					player.Execute("blood_amount = " + GetFloat(data, data_index) + ";");
+	                break;
+	            case recovery_time:
+					player.Execute("recovery_time = " + GetFloat(data, data_index) + ";");
+	                break;
+	            case roll_recovery_time:
+					player.Execute("roll_recovery_time = " + GetFloat(data, data_index) + ";");
+	                break;
+	            case knocked_out:
+					//Nothing yet
+	                break;
+	            case ragdoll_type:
+					player.Execute("ragdoll_type = " + GetInt(data, data_index) + ";");
+	                break;
+	            case blood_delay:
+					//Nothing yet
+	                break;
+	            case state:
+					//Nothing yet
+	                break;
+	            case cut_throat:
+					player.Execute("cut_throat = " + GetBool(data, data_index) + ";");
+	                break;
+				case remove_blood:
+					player.Execute("Recover();");
+	                break;
+	            default:
+	                break;
+	        }
 		}
 	}
 	else if (message_type == UpdateCharacter){
@@ -1786,7 +1810,7 @@ class PlayerVariableInput : PlayerVariable{
 			current_value = source_value;
 			addToByteArray(variable_type, message);
 			addToByteArray(current_value, message);
-			Print("Variable " + key_name + " value " + current_value + "\n");
+			/*Print("Variable " + key_name + " value " + current_value + "\n");*/
 		}
 	}
 }
@@ -1810,7 +1834,7 @@ class PlayerVariableFloatVar : PlayerVariable{
 			current_value = source_value;
 			addToByteArray(variable_type, message);
 			addToByteArray(current_value, message);
-			Print("Variable " + var_name + " value " + current_value + "\n");
+			/*Print("Variable " + var_name + " value " + current_value + "\n");*/
 		}
 	}
 }
@@ -1834,7 +1858,7 @@ class PlayerVariableIntVar : PlayerVariable{
 			current_value = source_value;
 			addToByteArray(variable_type, message);
 			addToByteArray(current_value, message);
-			Print("Variable " + var_name + " value " + current_value + "\n");
+			/*Print("Variable " + var_name + " value " + current_value + "\n");*/
 		}
 	}
 }
@@ -1858,7 +1882,7 @@ class PlayerVariableBoolVar : PlayerVariable{
 			current_value = source_value;
 			addToByteArray(variable_type, message);
 			addToByteArray(current_value, message);
-			Print("Variable " + var_name + " value " + current_value + "\n");
+			/*Print("Variable " + var_name + " value " + current_value + "\n");*/
 		}
 	}
 }
@@ -1878,13 +1902,13 @@ class PlayerVariableDirection : PlayerVariable{
 			dir_x = player_dir.x;
 			addToByteArray(direction_x, message);
 			addToByteArray(dir_x, message);
-			Print("Variable dirx" + " value " + dir_x + "\n");
+			/*Print("Variable dirx" + " value " + dir_x + "\n");*/
 		}
 		if(dir_z != player_dir.z || initial_update){
 			dir_z = player_dir.z;
 			addToByteArray(direction_z, message);
 			addToByteArray(dir_z, message);
-			Print("Variable dirz" + " value " + dir_z + "\n");
+			/*Print("Variable dirz" + " value " + dir_z + "\n");*/
 		}
 		initial_update = false;
 	}
@@ -1904,19 +1928,19 @@ class PlayerVariablePosition : PlayerVariable{
 			pos_x = player.position.x;
 			addToByteArray(position_x, message);
 			addToByteArray(pos_x, message);
-			Print("Variable posx" + " value " + pos_x + "\n");
+			/*Print("Variable posx" + " value " + pos_x + "\n");*/
 		}
 		if(pos_y != player.position.y || initial_update){
 			pos_y = player.position.y;
 			addToByteArray(position_y, message);
 			addToByteArray(pos_y, message);
-			Print("Variable posy" + " value " + pos_y + "\n");
+			/*Print("Variable posy" + " value " + pos_y + "\n");*/
 		}
 		if(pos_z != player.position.z || initial_update){
 			pos_z = player.position.z;
 			addToByteArray(position_z, message);
 			addToByteArray(pos_z, message);
-			Print("Variable posz" + " value " + pos_z + "\n");
+			/*Print("Variable posz" + " value " + pos_z + "\n");*/
 		}
 		initial_update = false;
 	}
@@ -1946,7 +1970,8 @@ enum PlayerVariableType{
 	position_y = 20,
 	position_z = 21,
 	direction_x = 22,
-	direction_z = 23
+	direction_z = 23,
+	remove_blood = 24
 }
 
 //Add roll jumpoffwall and activeblock
