@@ -12,9 +12,6 @@ bool MPWantsToAttack = false;
 bool MPWantsToGrab = false;
 bool MPWantsToItem = false;
 bool MPWantsToDrop = false;
-bool MPWantsToRoll = false;
-bool MPWantsToJumpOffWall = false;
-bool MPActiveBlock = false;
 bool MPCutThroat = false;
 int MPState = _movement_state;
 int MPBloodDelay = 0;
@@ -34,6 +31,10 @@ float dir_x = 0.0f;
 float MPPositionX = 0.0f;
 float MPPositionY = 0.0f;
 float MPPositionZ = 0.0f;
+
+bool MPWantsToRoll = false;
+/*bool MPWantsToJumpOffWall = false;*/
+/*bool MPActiveBlock = false;*/
 
 enum PathFindType {_pft_nav_mesh, _pft_climb, _pft_drop, _pft_jump};
 PathFindType path_find_type = _pft_nav_mesh;
@@ -76,13 +77,26 @@ void SetCharacterPosition(){
     }
 }
 
+bool AllowRoll = true;
+
 void KeepVariablesSynced(){
-    if(cut_throat != MPCutThroat){
+    /*if(cut_throat != MPCutThroat){
         cut_throat = MPCutThroat;
+    }*/
+
+    if(WantsToCrouch() && !WantsToRoll() && AllowRoll){
+        MPWantsToRoll = true;
+        AllowRoll = false;
+    }else if(WantsToRoll() && !AllowRoll){
+        MPWantsToRoll = false;
+    }else if(!WantsToCrouch() && !AllowRoll){
+        AllowRoll = true;
     }
+
     if(knocked_out != MPKnockedOut){
-        Print("Set knocked out! " + MPKnockedOut + "\n");
-        SetKnockedOut(MPKnockedOut);
+        Print("Putting remote player back on track! " + MPKnockedOut + "\n");
+        /*SetKnockedOut(MPKnockedOut);*/
+        RecoverHealth();
         SetCharacterPosition();
     }
     /*if(state != MPState){
@@ -123,7 +137,7 @@ void KeepVariablesSynced(){
 void UpdateBrain(const Timestep &in ts){
     KeepVariablesSynced();
     startled = false;
-    if(MPWantsToGrab){
+    if(WantsToGrab()){
         grab_key_time += ts.step();
     } else {
         grab_key_time = 0.0f;
@@ -140,7 +154,7 @@ void UpdateBrain(const Timestep &in ts){
 
     force_look_target_id = situation.GetForceLookTarget();
 
-    if(!MPWantsToDrop){
+    if(!WantsToDrop()){
         drop_key_state = _dks_nothing;
     } else if (drop_key_state == _dks_nothing){
         if((weapon_slots[primary_weapon_slot] == -1 || (weapon_slots[secondary_weapon_slot] == -1 && duck_amount < 0.5f)) &&
@@ -148,7 +162,7 @@ void UpdateBrain(const Timestep &in ts){
         {
             drop_key_state = _dks_pick_up;
         } else {
-            if(MPWantsToCrouch &&
+            if(WantsToCrouch() &&
                duck_amount > 0.5f &&
                on_ground &&
                !flip_info.IsFlipping() &&
@@ -161,7 +175,7 @@ void UpdateBrain(const Timestep &in ts){
         }
     }
 
-    if(!MPWantsToItem){
+    if(!WantsToUseItem()){
         item_key_state = _iks_nothing;
     } else if (item_key_state == _iks_nothing){
         if(weapon_slots[primary_weapon_slot] == -1 ){
@@ -171,7 +185,7 @@ void UpdateBrain(const Timestep &in ts){
         }
     }
 
-    if(delay_jump && !GetInputDown(this_mo.controller_id, "jump")){
+    if(delay_jump && !WantsToJump()){
         delay_jump = false;
     }
 	if(MPUsername != ""){
@@ -230,6 +244,10 @@ bool WantsToCrouch() {
     return MPWantsToCrouch;
 }
 
+bool WantsToUseItem(){
+    return MPWantsToItem;
+}
+
 bool WantsToRoll() {
     return MPWantsToRoll;
 }
@@ -243,7 +261,7 @@ bool WantsToAttack() {
 }
 
 bool WantsToRollFromRagdoll(){
-    return MPWantsToRoll;
+    return MPWantsToCrouch;
 }
 
 bool ActiveDodging(int attacker_id) {
@@ -264,14 +282,18 @@ bool ActiveDodging(int attacker_id) {
 }
 
 bool ActiveBlocking() {
-    return MPActiveBlock;
+    return active_blocking;
 }
 
 bool WantsToFlip() {
-    return MPWantsToRoll;
+    return MPWantsToCrouch;
 }
 
 bool WantsToGrabLedge() {
+    return MPWantsToGrab;
+}
+
+bool WantsToGrab(){
     return MPWantsToGrab;
 }
 
@@ -293,6 +315,10 @@ bool WantsToPickUpItem() {
 
 bool WantsToDropItem() {
     return drop_key_state == _dks_drop;
+}
+
+bool WantsToDrop(){
+    return MPWantsToDrop;
 }
 
 bool WantsToThrowItem() {
@@ -322,7 +348,7 @@ bool WantsToUnSheatheItem(int &out src) {
 
 
 bool WantsToStartActiveBlock(const Timestep &in ts){
-    return MPActiveBlock;
+    return MPWantsToGrab;
 }
 
 bool WantsToFeint(){
@@ -334,11 +360,11 @@ bool WantsToCounterThrow(){
 }
 
 bool WantsToJumpOffWall() {
-    return MPWantsToJumpOffWall;
+    return MPWantsToJump;
 }
 
 bool WantsToFlipOffWall() {
-    return MPWantsToRoll;
+    return MPWantsToCrouch;
 }
 
 bool WantsToAccelerateJump() {
@@ -359,14 +385,15 @@ bool WantsToDodge(const Timestep &in ts) {
 }
 
 bool WantsToCancelAnimation() {
-    return MPWantsToJump ||
+    /*return MPWantsToJump ||
            MPWantsToCrouch ||
            MPWantsToGrab ||
            MPWantsToAttack ||
            GetInputDown(this_mo.controller_id, "move_up") ||
            GetInputDown(this_mo.controller_id, "move_left") ||
            GetInputDown(this_mo.controller_id, "move_right") ||
-           GetInputDown(this_mo.controller_id, "move_down");
+           GetInputDown(this_mo.controller_id, "move_down");*/
+    return true;
 }
 
 // Converts the keyboard controls into a target velocity that is used for movement calculations in aschar.as and aircontrol.as.
