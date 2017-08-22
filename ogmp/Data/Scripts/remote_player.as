@@ -31,6 +31,9 @@ float dir_x = 0.0f;
 float MPPositionX = 0.0f;
 float MPPositionY = 0.0f;
 float MPPositionZ = 0.0f;
+float MPVelocityX = 0.0f;
+float MPVelocityY = 0.0f;
+float MPVelocityZ = 0.0f;
 
 bool MPWantsToRoll = false;
 /*bool MPWantsToJumpOffWall = false;*/
@@ -71,42 +74,70 @@ int IsAggro() {
     return 1;
 }
 
+bool StuckToNavMesh() {
+    return false;
+}
+
 void SetCharacterPosition(){
     if(MPPositionX != 0.0f){
         this_mo.position = vec3(MPPositionX, MPPositionY, MPPositionZ);
     }
 }
 
-bool AllowRoll = true;
+void SetCharacterVelocity(){
+    vec3 new_velocity = vec3(MPVelocityX, MPVelocityY, MPVelocityZ);
+    if(length(new_velocity) > 1.0f){
+        this_mo.velocity = new_velocity;
+    }else{
+        if(!on_ground){
+            SetOnGround(true);
+            flip_info.Land();
+        }
+    }
+}
+
+bool roll_trigger = true;
 
 void KeepVariablesSynced(){
-    /*if(cut_throat != MPCutThroat){
-        cut_throat = MPCutThroat;
-    }*/
-
-    if(WantsToCrouch() && !WantsToRoll() && AllowRoll){
+    if(WantsToCrouch() && !WantsToRoll() && roll_trigger){
         MPWantsToRoll = true;
-        AllowRoll = false;
-    }else if(WantsToRoll() && !AllowRoll){
+        roll_trigger = false;
+    }else if(WantsToRoll() && !roll_trigger){
         MPWantsToRoll = false;
-    }else if(!WantsToCrouch() && !AllowRoll){
-        AllowRoll = true;
-    }
-
-    if(knocked_out != MPKnockedOut){
-        Print("Putting remote player back on track! " + MPKnockedOut + "\n");
-        /*SetKnockedOut(MPKnockedOut);*/
-        RecoverHealth();
-        SetCharacterPosition();
-    }
-    /*if(state != MPState){
-        state = MPState;
-    }*/
-    if(blood_delay != MPBloodDelay){
-        blood_delay = MPBloodDelay;
+    }else if(!WantsToCrouch() && !roll_trigger){
+        roll_trigger = true;
     }
     if(ragdoll_type != MPRagdollType){
         ragdoll_type = MPRagdollType;
+    }
+    if(state != MPState){
+        ragdoll_type = MPRagdollType;
+        if(MPState == _ragdoll_state){
+            Ragdoll(MPRagdollType);;
+        }else{
+            /*this_mo.UnRagdoll();*/
+            this_mo.rigged_object().CleanBlood();
+		    ClearTemporaryDecals();
+        }
+    }
+    if(knocked_out != MPKnockedOut){
+        SetKnockedOut(MPKnockedOut);
+        SetOnFire(false);
+        this_mo.rigged_object().SetFire(0.0);
+        injured_mouth_open = 0.0f;
+        zone_killed = 0;
+        ko_shield = max_ko_shield;
+        this_mo.velocity = vec3(0);
+        SetCharacterPosition();
+    }
+    if(!ledge_info.on_ledge){
+        SetCharacterVelocity();
+    }
+    if(cut_throat != MPCutThroat){
+        cut_throat = MPCutThroat;
+    }
+    if(blood_delay != MPBloodDelay){
+        blood_delay = MPBloodDelay;
     }
     if(roll_recovery_time != MPRollRecoveryTime){
         roll_recovery_time = MPRollRecoveryTime;
@@ -275,9 +306,9 @@ bool ActiveDodging(int attacker_id) {
         }
     }
     if(attack_getter2.GetFleshUnblockable() == 1 && knife_attack){
-        return active_dodge_time > time - 0.4f; // Player gets bonus to dodge vs knife attacks
+        return active_dodge_time > time - (HowLongDoesActiveDodgeLast()+0.2); // Player gets bonus to dodge vs knife attacks
     } else {
-        return active_dodge_time > time - 0.2f;
+        return active_dodge_time > time - HowLongDoesActiveDodgeLast();
     }
 }
 
@@ -286,11 +317,15 @@ bool ActiveBlocking() {
 }
 
 bool WantsToFlip() {
-    return MPWantsToCrouch;
+    return MPWantsToRoll;
 }
 
 bool WantsToGrabLedge() {
-    return MPWantsToGrab;
+    if(GetConfigValueBool("auto_ledge_grab")){
+        return !WantsToCrouch();
+    } else {
+        return WantsToGrab();
+    }
 }
 
 bool WantsToGrab(){
@@ -310,7 +345,7 @@ bool WantsToDragBody() {
 }
 
 bool WantsToPickUpItem() {
-    return MPWantsToGrab;
+    return drop_key_state == _dks_pick_up;
 }
 
 bool WantsToDropItem() {
@@ -326,7 +361,7 @@ bool WantsToThrowItem() {
 }
 
 bool WantsToThroatCut() {
-    return MPWantsToAttack;
+    return MPWantsToAttack || drop_key_state != _dks_nothing;
 }
 
 bool WantsToSheatheItem() {
@@ -356,7 +391,7 @@ bool WantsToFeint(){
 }
 
 bool WantsToCounterThrow(){
-    return MPWantsToGrab;
+    return MPWantsToGrab && !MPWantsToAttack;
 }
 
 bool WantsToJumpOffWall() {
@@ -399,15 +434,6 @@ bool WantsToCancelAnimation() {
 // Converts the keyboard controls into a target velocity that is used for movement calculations in aschar.as and aircontrol.as.
 vec3 GetTargetVelocity() {
     vec3 target_velocity = vec3(dir_x, 0.0f, dir_z);
-
-    if(length_squared(target_velocity)>1){
-        target_velocity = normalize(target_velocity);
-    }
-
-    if(trying_to_get_weapon > 0){
-        target_velocity = get_weapon_dir;
-    }
-
     return target_velocity;
 }
 
@@ -459,21 +485,5 @@ int GetRightFootPlanted(){
         return 1;
     }else{
         return 0;
-    }
-}
-bool StuckToNavMesh() {
-    if(path_find_type == _pft_nav_mesh){
-        vec3 nav_pos = GetNavPointPos(this_mo.position);
-        if(abs(nav_pos[1] - this_mo.position[1]) > 1.0){
-            return false;
-        }
-        nav_pos[1] = this_mo.position[1];
-        if(distance(nav_pos, this_mo.position) < 0.1){
-            return true;
-        } else {
-            return false;
-        }
-    } else {
-        return false;
     }
 }

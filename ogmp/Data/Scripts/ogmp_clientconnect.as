@@ -253,7 +253,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 	}
 	else{
 		Log(error, "Unknown incomming message: " + message_type);
-		PrintByteArrayString(data);
+		/*PrintByteArrayString(data);*/
 	}
 }
 
@@ -367,10 +367,12 @@ void SetCharacterVariables(MovementObject@ character, PlayerVariableType variabl
 			}
 			break;
 		}
-		case remove_blood:
-			GetBool(data, data_index);
-			character.Execute("Recover();");
+		case remove_blood:{
+			bool new_remove_blood = GetBool(data, data_index);
+			character.rigged_object().CleanBlood();
+		    character.Execute("ClearTemporaryDecals();");
 			break;
+		}
 		case crouch:
 			character.Execute("MPWantsToCrouch = " + GetBool(data, data_index) + ";");
 			break;
@@ -395,6 +397,8 @@ void SetCharacterVariables(MovementObject@ character, PlayerVariableType variabl
 			}else{
 				float new_position_x = GetFloat(data, data_index);
 				character.position.x = new_position_x;
+				/*if(abs(new_position_x - character.position.x) > 1.0f){
+				}*/
 				character.Execute("MPPositionX = " + new_position_x + ";");
 			}
 			break;
@@ -405,6 +409,8 @@ void SetCharacterVariables(MovementObject@ character, PlayerVariableType variabl
 			}else{
 				float new_position_y = GetFloat(data, data_index);
 				character.position.y = new_position_y;
+				/*if(abs(new_position_y - character.position.y) > 1.0f){
+				}*/
 				character.Execute("MPPositionY = " + new_position_y + ";");
 			}
 			break;
@@ -415,16 +421,50 @@ void SetCharacterVariables(MovementObject@ character, PlayerVariableType variabl
 			}else{
 				float new_position_z = GetFloat(data, data_index);
 				character.position.z = new_position_z;
+				/*if(abs(new_position_z - character.position.z) > 1.0f){
+				}*/
 				character.Execute("MPPositionZ = " + new_position_z + ";");
 			}
 			break;
 		}
-		case direction_x:
+		case direction_x:{
 			character.Execute("dir_x = " + GetFloat(data, data_index) + ";");
 			break;
-		case direction_z:
+		}
+		case direction_z:{
 			character.Execute("dir_z = " + GetFloat(data, data_index) + ";");
 			break;
+		}
+		case velocity_x:{
+			if(is_player){
+				character.velocity.x = GetFloat(data, data_index);
+			}else{
+				float new_velocity_x = GetFloat(data, data_index);
+				//character.velocity.x = new_velocity_x;
+				character.Execute("MPVelocityX = " + new_velocity_x + ";");
+			}
+			break;
+		}
+		case velocity_y:{
+			if(is_player){
+				character.velocity.y = GetFloat(data, data_index);
+			}else{
+				float new_velocity_y = GetFloat(data, data_index);
+				//character.velocity.y = new_velocity_y;
+				character.Execute("MPVelocityY = " + new_velocity_y + ";");
+			}
+			break;
+		}
+		case velocity_z:{
+			if(is_player){
+				character.velocity.z = GetFloat(data, data_index);
+			}else{
+				float new_velocity_z = GetFloat(data, data_index);
+				//character.velocity.z = new_velocity_z;
+				character.Execute("MPVelocityZ = " + new_velocity_z + ";");
+			}
+			break;
+		}
 		default:
 			break;
 	}
@@ -1376,10 +1416,9 @@ void Update(int paused) {
         return;
     }
     if(connected_to_server){
-		UpdateTimeCriticalPlayerVariables();
+		/*UpdateTimeCriticalPlayerVariables();*/
 		update_timer += time_step;
 		if(update_timer > interval){
-			UpdatePlayerVariables();
 	        SendPlayerUpdate();
 			update_timer = 0;
 	    }
@@ -1479,23 +1518,11 @@ void Update(int paused) {
 		}
 	}
 	SeparateMessages();
-	if(update_player_vars){
-		x_timer += time_step;
-		if(x_timer > 5.0f){
-			x_timer = 0.0f;
-			UpdatePlayerVariables();
-		}
-	}
-	if(GetInputPressed(0, "i")){
-		update_player_vars = true;
-	}
 	if(connected_to_server){
 		UpdateInput();
 	}
 	imGUI.update();
 }
-float x_timer = 0.0f;
-bool update_player_vars = false;
 
 void UpdatePlayerUsernameBillboard(){
 	MovementObject@ player = ReadCharacterID(player_id);
@@ -1815,22 +1842,12 @@ float toFloat(array<uint8> bytes){
 	return fpFromIEEE(s);
 }
 
-/*char* request_handler::floatToByteArray(float f) {
-	char *array;
-	array = (char*)(&f);
-	return array;
-}*/
-
 void SendPlayerUpdate(){
 	array<uint8> message;
 	message.insertLast(UpdateGame);
 
 	player_variables.AddUpdateMessage(@message);
-	/*PrintByteArray(message);*/
 	SendData(message);
-	/*MPWantsToRoll = false;
-	MPWantsToJumpOffWall = false;
-	MPActiveBlock = false;*/
 }
 
 vec3 GetPlayerTargetVelocity() {
@@ -2051,6 +2068,38 @@ class PlayerVariablePosition : PlayerVariable{
 	}
 }
 
+class PlayerVariableVelocity : PlayerVariable{
+	float vel_x;
+	float vel_y;
+	float vel_z;
+	MovementObject@ player;
+	PlayerVariableVelocity(int _player_id){
+		//TODO this handle on the player character might not be the best solution, to be tested.
+		@player = ReadCharacterID(player_id);
+	}
+	void AddToUpdateMessage(array<uint8>@ message){
+		if(vel_x != player.velocity.x || initial_update){
+			vel_x = player.velocity.x;
+			addToByteArray(velocity_x, message);
+			addToByteArray(vel_x, message);
+			/*Print("Variable vel_x" + " value " + vel_x + "\n");*/
+		}
+		if(vel_y != player.velocity.y || initial_update){
+			vel_y = player.velocity.y;
+			addToByteArray(velocity_y, message);
+			addToByteArray(vel_y, message);
+			/*Print("Variable vel_y" + " value " + vel_y + "\n");*/
+		}
+		if(vel_z != player.velocity.z || initial_update){
+			vel_z = player.velocity.z;
+			addToByteArray(velocity_z, message);
+			addToByteArray(vel_z, message);
+			/*Print("Variable vel_z" + " value " + vel_z + "\n");*/
+		}
+		initial_update = false;
+	}
+}
+
 enum PlayerVariableType{
 	crouch = 0,
 	jump = 1,
@@ -2076,7 +2125,10 @@ enum PlayerVariableType{
 	position_z = 21,
 	direction_x = 22,
 	direction_z = 23,
-	remove_blood = 24
+	remove_blood = 24,
+	velocity_x = 25,
+	velocity_y = 26,
+	velocity_z = 27
 }
 
 //TODO Add roll jumpoffwall and activeblock
@@ -2115,17 +2167,8 @@ void SetupPlayerVariables(){
 	player_variables.AddVariable(PlayerVariableBoolVar(player_id, "cut_throat", cut_throat));
 
 	player_variables.AddVariable(PlayerVariablePosition(player_id));
+	player_variables.AddVariable(PlayerVariableVelocity(player_id));
 	player_variables.AddVariable(PlayerVariableDirection(player_id));
-}
-
-void UpdatePlayerVariables(){
-	if(chat.chat_input_shown){
-		return;
-	}
-	/*array<uint8> message;*/
-	/*player_variables.AddUpdateMessage(@message);*/
-	//Print("Size " + message.size() + "\n");
-	//PrintByteArray(message);
 }
 
 void UpdateInput(){
