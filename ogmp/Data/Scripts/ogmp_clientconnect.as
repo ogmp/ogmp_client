@@ -5,7 +5,7 @@ string level_path = "";
 string level_name = "";
 int player_id = -1;
 int initial_sequence_id;
-IMGUI imGUI;
+IMGUI@ imGUI;
 Chat chat;
 Inputfield username_field;
 Inputfield address_field;
@@ -66,6 +66,7 @@ string address = "127.0.0.1";
 string port = "9000";
 
 void Init(string p_level_name) {
+	@imGUI = CreateIMGUI();
 	level_path = GetLevelPath();
 	level_name = p_level_name;
 	imGUI.setHeaderPanels(300, 300);
