@@ -486,4 +486,7 @@ int GetRightFootPlanted(){
     }else{
         return 0;
     }
+
+void BrainSpeciesUpdate() {}
+
 }
