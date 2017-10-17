@@ -111,13 +111,14 @@ void KeepVariablesSynced(){
         ragdoll_type = MPRagdollType;
     }
     if(state != MPState){
-        ragdoll_type = MPRagdollType;
-        if(MPState == _ragdoll_state){
-            Ragdoll(MPRagdollType);;
-        }else{
-            /*this_mo.UnRagdoll();*/
+        if(state == _ragdoll_state && MPState != _ragdoll_state){
+            WakeUp(_wake_stand);
             this_mo.rigged_object().CleanBlood();
-		    ClearTemporaryDecals();
+            ClearTemporaryDecals();
+        }else{
+            if(MPState == _ragdoll_state){
+                Ragdoll(MPRagdollType);
+            }
         }
     }
     if(knocked_out != MPKnockedOut){
@@ -222,6 +223,10 @@ void UpdateBrain(const Timestep &in ts){
 	if(MPUsername != ""){
 		UpdatePlayerUsernameBillboard();
 	}
+}
+
+void BrainSpeciesUpdate() {
+
 }
 
 void UpdatePlayerUsernameBillboard(){
