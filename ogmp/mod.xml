@@ -12,7 +12,7 @@
     <Tag>scripting</Tag>
     <Tag>ogmp</Tag>
     <Tag>online</Tag>
-    <SupportedVersion>1</SupportedVersion>
+    <SupportedVersion>1.1</SupportedVersion>
     <LevelHookFile>Data/Scripts/ogmp_clientconnect.as</LevelHookFile>
     <!-- <MenuItem title="OGMP" category="play">Data/Scripts/ogmp_main_menu.as</MenuItem> -->
 </Mod>
