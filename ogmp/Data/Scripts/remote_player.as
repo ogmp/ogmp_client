@@ -3,6 +3,13 @@
 
 float grab_key_time;
 bool delay_jump;
+
+// For pressing crouch to drop off ledges
+bool crouch_pressed_on_ledge = false;
+bool crouch_pressable_on_ledge = false;
+
+int got_hit_by_leg_cannon_count = 0;
+
 string MPUsername = "";
 int username_billboard = -1;
 
