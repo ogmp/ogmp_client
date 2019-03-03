@@ -38,7 +38,7 @@ uint main_socket = SOCKET_ID_INVALID;
 
 ServerRetriever server_retriever;
 
-array<ServerConnectionInfo@> server_list = {	ServerConnectionInfo("23.95.198.31", 2000)	};
+array<ServerConnectionInfo@> server_list = {	ServerConnectionInfo("107.173.129.154", 9000)	};
 
 class ServerConnectionInfo{
 	string server_name;
