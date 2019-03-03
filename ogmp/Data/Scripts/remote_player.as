@@ -81,6 +81,10 @@ int IsAggro() {
     return 1;
 }
 
+int IsPassive() {
+    return 0;
+}
+
 bool StuckToNavMesh() {
     return false;
 }
@@ -481,6 +485,10 @@ int CombatSong() {
 
 int IsAggressive() {
     return 0;
+}
+
+void DrawAIStateDebug() {
+
 }
 
 int GetLeftFootPlanted(){
