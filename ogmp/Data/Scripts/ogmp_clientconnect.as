@@ -149,7 +149,7 @@ void ProcessIncomingMessage(array<uint8>@ data){
 		chat.AddMessage(welcome_message, "server", true);
 		RemoveUI();
 		currentUIState = PlayerListUI;
-		DisableDebugKeys();
+		/* DisableDebugKeys(); */
 		RemoveAllExceptPlayer();
 	}
 	else if(message_type == Message){
